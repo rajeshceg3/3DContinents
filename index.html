@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Continent Explorer</title>
+    <style>
+        /* Basic styling for the body and canvas to fill the screen */
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: rgba(255, 255, 255, 0.9); /* Softer white for text */
+            background-color: #010409; /* Deep, near-black blue for background */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        canvas {
+            display: block;
+            width: 100vw; /* Canvas takes full viewport width */
+            height: 100vh; /* Canvas takes full viewport height */
+        }
+        /* UI container for title, instructions, and continent label */
+        .ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            opacity: 0; /* Hidden by default for fade-in animation */
+            transition: opacity 2s ease; /* Smooth fade-in for the UI */
+        }
+        .info {
+            text-align: center;
+            padding-top: 30px;
+        }
+        h1 {
+            font-weight: 300;
+            font-size: clamp(1.5em, 5vw, 2.5em); /* Responsive font size */
+            margin: 0;
+            text-shadow: 0 0 10px rgba(0,0,0,0.7); /* Subtle text shadow */
+        }
+        p {
+            font-weight: 400;
+            font-size: clamp(0.9em, 2.5vw, 1.1em); /* Responsive font size */
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.7); /* Even softer white for paragraphs */
+        }
+        /* Styling for the continent name label */
+        .continent-label {
+            font-size: clamp(3em, 10vw, 6em); /* Large, responsive font size */
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0,0,0,0.3);
+            opacity: 0; /* Hidden by default for animation */
+            position: absolute;
+            bottom: 10%; /* Positioned towards the bottom */
+        }
+        /* Styling for the Reset View button */
+        #resetButton {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
+            border-radius: 8px; /* Rounded corners */
+            cursor: pointer;
+            pointer-events: all; /* Allows interaction */
+            opacity: 0; /* Hidden by default */
+            transform: translateY(20px); /* Slightly off-screen for slide-in effect */
+            transition: opacity 0.4s ease, transform 0.4s ease, background-color 0.3s; /* Smooth transitions */
+            backdrop-filter: blur(8px); /* Frosted glass effect */
+            -webkit-backdrop-filter: blur(8px); /* For Safari */
+        }
+        #resetButton:hover {
+            background-color: rgba(255, 255, 255, 0.2); /* Slightly more opaque on hover */
+        }
+        #resetButton.visible {
+            opacity: 1; /* Fully visible */
+            transform: translateY(0); /* Slides into view */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-container">
+        <div class="info">
+            <h1>The Continent Explorer</h1>
+            <p>Click and drag or use arrow keys to explore.<br>Click a continent or press Enter to discover it!</p>
+        </div>
+        <div id="continentLabel" class="continent-label"></div>
+    </div>
+    
+    <button id="resetButton">Reset View</button>
+
+    <canvas id="webgl"></canvas>
+
+    <!-- Essential libraries: es-module-shims for import maps, Three.js, and GSAP for animations -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/" } }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+
+        // 1. CONSTANTS & CONFIGURATION
+        const PLANET_RADIUS = 5; // Radius of the main planet sphere
+        const INITIAL_CAMERA_Z = 15; // Initial Z position of the camera
+        const FOCUSED_CAMERA_Z = 8; // Z position of the camera when focusing on a continent
+        const PASTEL_PALETTE = { // Color palette for continents
+            blue: '#a2d2ff',
+            pink: '#ffafcc',
+            purple: '#cdb4db',
+            yellow: '#fff3b0',
+            green: '#bde0fe',
+            orange: '#ffc09f',
+            gray: '#d4d4d4',
+        };
+
+        // 2. SCENE SETUP - Initialize Three.js components
+        const scene = new THREE.Scene();
+        const canvas = document.querySelector('#webgl');
+        const uiContainer = document.querySelector('.ui-container');
+        const continentLabel = document.getElementById('continentLabel');
+        const resetButton = document.getElementById('resetButton');
+
+        // Camera setup
+        const initialCameraPosition = new THREE.Vector3(0, 0, INITIAL_CAMERA_Z);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Start camera slightly further back for a smooth intro zoom
+        camera.position.set(0, 0, INITIAL_CAMERA_Z + 10); 
+
+        // Renderer setup
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for device pixel ratio
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft ambient light
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5); // Stronger directional light
+        directionalLight.position.set(5, 5, 5); // Position of the light source
+        scene.add(directionalLight);
+
+        // OrbitControls for interactive camera movement
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Smooth camera movement
+        controls.enablePan = false; // Disable panning
+        controls.enableZoom = false; // Disable zoom (we'll handle programmatic zoom)
+        controls.minDistance = FOCUSED_CAMERA_Z; // Prevent camera from going too close
+        controls.maxDistance = INITIAL_CAMERA_Z + 5; // Prevent camera from going too far
+
+        // 3. CREATE THE WORLD - Planet, Atmosphere, and Stars
+        const planetGroup = new THREE.Group(); // Group to hold the planet and continents
+        scene.add(planetGroup);
+
+        const textureLoader = new THREE.TextureLoader();
+        // Base64 encoded texture for the planet (a placeholder Earth texture)
+        const earthTexture_base64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAEAAgADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWFlcZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU1Njc4ODk6Q0RFRkdISUpTVFVWlhZWmNkZWZnaGlqc3R1dnd4eXqCg4SFhoeIiYqSk5SVlpeYmZqjo6Slpqeoqqys7S1tre4ubrCw8TFxsfIycrS09TXV9jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A9UooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA/9k=";
+        const earthTexture = textureLoader.load(earthTexture_base64);
+
+        const planet = new THREE.Mesh(
+            new THREE.SphereGeometry(PLANET_RADIUS, 64, 64), // High-poly sphere for smooth surface
+            new THREE.MeshStandardMaterial({
+                map: earthTexture, // Apply the Earth texture
+                roughness: 0.9, // Make it less shiny
+                metalness: 0.1 // Not metallic
+            })
+        );
+        planetGroup.add(planet);
+
+        // ENHANCEMENT: Atmospheric Glow effect
+        const atmosphereGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(PLANET_RADIUS + 0.4, 64, 64), // Slightly larger sphere
+            new THREE.ShaderMaterial({
+                // Vertex shader to calculate normal for glow effect
+                vertexShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal); // Transform normal to view space
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                // Fragment shader to create the glow based on view angle
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        // Calculate intensity based on the dot product of normal and camera direction
+                        // This makes the glow brighter at the edges
+                        float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+                        gl_FragColor = vec4(0.5, 0.7, 1.0, 1.0) * intensity * 0.5; // Blueish glow, scaled down
+                    }
+                `,
+                blending: THREE.AdditiveBlending, // Additive blending for glow effect
+                side: THREE.BackSide, // Render only the back side of the sphere
+                transparent: true // Enable transparency
+            })
+        );
+        scene.add(atmosphereGlow);
+
+        // Stars background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starVertices = [];
+        for (let i = 0; i < 15000; i++) { // 15,000 stars
+            // Randomly spread stars within a large cube
+            starVertices.push(THREE.MathUtils.randFloatSpread(2000)); 
+            starVertices.push(THREE.MathUtils.randFloatSpread(2000));
+            starVertices.push(THREE.MathUtils.randFloatSpread(2000));
+        }
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const starsMaterial = new THREE.PointsMaterial({ 
+            color: 0xffffff, 
+            size: 0.5, 
+            transparent: true 
+        });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+
+        // 4. CONTINENT GEOMETRY & ICONS - Loading and placing SVG continents
+        const interactiveObjects = []; // Array to store objects that can be interacted with
+        const svgLoader = new SVGLoader(); // Loader for SVG files
+
+        /**
+         * Places a 3D object on the surface of the planet based on latitude and longitude.
+         * @param {THREE.Object3D} object - The object to place.
+         * @param {number} lat - Latitude in degrees.
+         * @param {number} lon - Longitude in degrees.
+         */
+        function placeOnPlanet(object, lat, lon) {
+            const radius = PLANET_RADIUS + 0.05; // Slightly above planet surface to avoid z-fighting
+            const phi = (90 - lat) * (Math.PI / 180); // Convert latitude to spherical coordinate phi
+            const theta = (lon + 180) * (Math.PI / 180); // Convert longitude to spherical coordinate theta
+            object.position.setFromSphericalCoords(radius, phi, theta);
+            object.lookAt(planet.position); // Make the object face away from the planet's center
+        }
+
+        /**
+         * Creates a 3D continent mesh from SVG path data and adds it to the scene.
+         * @param {object} data - Continent data including svgPath, name, color, lat, lon, scale.
+         */
+        function createContinent(data) {
+            const { svgPath, name, color, lat, lon, scale } = data;
+            // Parse SVG string to a format Three.js can use
+            const parsedData = svgLoader.parse(`<svg><path d="${svgPath}"/></svg>`);
+            const continentGroup = new THREE.Group(); // Group to hold all meshes for a single continent
+            
+            const material = new THREE.MeshStandardMaterial({ 
+                color, 
+                roughness: 0.8,
+                metalness: 0.1,
+                emissive: 0x000000, // Initial emissive color (no self-illumination)
+                transparent: true, // Enable transparency for fade effects
+                opacity: 1 // Initial opacity
+            });
+
+            // Create shapes from SVG paths and extrude them into 3D meshes
+            parsedData.paths.forEach((path) => {
+                const shapes = SVGLoader.createShapes(path);
+                shapes.forEach((shape) => {
+                    // Extrude geometry to give the continent some thickness
+                    const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.1, bevelEnabled: false });
+                    geometry.center(); // Center the geometry's pivot point
+                    const mesh = new THREE.Mesh(geometry, material);
+                    continentGroup.add(mesh);
+                });
+            });
+
+            continentGroup.scale.set(scale, scale, 0.1); // Apply overall scale to the continent group
+            placeOnPlanet(continentGroup, lat, lon); // Position on the planet
+
+            // Store custom data for interaction
+            continentGroup.userData = { name, isContinent: true, originalScale: scale };
+            planetGroup.add(continentGroup); // Add to the planet group
+            interactiveObjects.push(continentGroup); // Add to interactive objects list
+        }
+
+        // Continent data (SVG paths are illustrative placeholders, not accurate world maps)
+        // For real accuracy, precise geodata paths would be required.
+        const continents = [
+            {svgPath: "M553,307L550,298L548,289L542,283L531,273L524,272L517,264L500,265L494,258L475,252L465,244L453,235L441,230L423,230L411,237L403,232L399,223L403,215L402,204L410,195L413,184L424,175L425,166L433,158L430,147L420,138L421,126L415,119L418,109L425,100L423,89L418,80L405,73L394,66L384,60L380,51L387,42L387,32L397,25L407,17L418,11L415,3L406,1L375,1L359,6L343,9L338,18L329,22L319,26L310,21L301,23L294,29L289,39L293,49L288,57L282,60L284,72L282,85L273,87L265,97L258,113L253,124L245,130L233,130L222,136L214,147L208,157L207,173L211,185L211,195L205,202L194,206L187,211L189,221L194,228L198,239L202,250L208,255L221,257L230,264L241,275L247,289L253,300L253,308L259,313L270,314L279,322L285,331L289,343L293,354L300,359L308,359L316,353L324,354L330,361L332,372L340,380L348,382L356,380L365,373L376,375L381,384L381,392L388,397L396,396L404,399L407,407L412,414L412,423L418,428L429,428L439,423L446,417L451,407L456,397L463,392L478,393L486,386L491,377L494,367L500,359L509,352L518,345L527,337L534,329L545,317L553,307z", name: 'Africa', color: PASTEL_PALETTE.yellow, lat: 0, lon: 20, scale: 0.015},
+            {svgPath: "M635,168L627,161L612,154L601,155L588,162L579,161L572,154L565,145L561,135L556,125L557,112L564,103L570,95L579,89L588,85L597,80L606,72L610,62L613,51L613,40L618,31L625,24L635,19L645,17L657,17L668,22L678,30L686,40L691,51L693,62L691,73L686,83L680,92L675,100L676,110L682,118L688,126L694,133L701,141L707,149L711,159L713,169L712,179L708,188L701,195L693,200L684,203L675,204L666,202L658,198L650,192L643,184L638,175L635,168Z", name: 'Australia', color: PASTEL_PALETTE.orange, lat: -25, lon: 135, scale: 0.015},
+            {svgPath: "M439,223L433,215L428,206L423,196L418,186L413,176L410,165L409,153L411,142L416,132L422,123L429,115L437,108L445,102L454,97L463,93L473,91L483,90L493,91L503,94L512,99L520,105L527,112L533,120L538,129L542,139L545,149L547,160L548,171L547,182L545,193L542,203L538,212L533,221L527,229L520,236L512,242L503,247L493,251L483,253L473,253L463,251L454,248L445,244L439,238L435,231L439,223Z", name: 'Antarctica', color: PASTEL_PALETTE.gray, lat: -82, lon: 20, scale: 0.035},
+            {svgPath: "M460,207L464,198L464,188L459,181L451,173L444,166L443,155L449,148L456,142L465,137L475,134L485,133L495,134L505,137L514,142L521,148L527,155L530,164L531,174L529,183L525,191L519,198L512,204L504,209L495,212L485,213L475,212L468,210L460,207Z M520,119L513,113L504,110L495,109L485,110L476,113L469,119L464,126L461,134L460,144L462,153L466,161L472,167L479,171L487,173L497,172L505,169L512,165L517,159L521,152L523,143L523,133L520,119Z", name: 'Europe', color: PASTEL_PALETTE.blue, lat: 54, lon: 38, scale: 0.011},
+            {svgPath: "M552,244L545,236L537,230L528,226L518,224L508,224L498,226L489,230L482,236L477,244L474,254L473,264L474,274L477,284L478,292L489,298L498,302L508,304L518,304L528,302L537,298L545,292L550,284L553,274L554,264L553,254L552,244Z", name: 'Asia', color: PASTEL_PALETTE.pink, lat: 45, lon: 100, scale: 0.04},
+            {svgPath: "M229,139L224,131L217,125L209,121L200,119L190,119L181,121L173,125L166,131L161,139L158,149L157,159L158,169L161,179L166,187L173,193L181,197L190,199L200,199L209,197L217,193L224,187L229,179L232,169L233,159L232,149L229,139Z", name: 'North America', color: PASTEL_PALETTE.green, lat: 48, lon: -100, scale: 0.03},
+            {svgPath: "M379,350L374,342L367,336L359,332L350,330L340,330L331,332L323,336L316,350L308,360L307,370L308,380L311,390L316,398L323,404L331,408L340,410L350,410L359,408L367,404L374,398L379,390L382,380L383,370L382,360L379,350Z", name: 'South America', color: PASTEL_PALETTE.purple, lat: -15, lon: -60, scale: 0.02},
+        ];
+        // Create each continent on the globe
+        continents.forEach(createContinent);
+
+        // 5. INTERACTION & ANIMATIONS
+        const raycaster = new THREE.Raycaster(); // Used for detecting intersections with mouse
+        const mouse = new THREE.Vector2(); // Stores mouse coordinates
+        let isAnimating = false; // Flag to prevent multiple animations
+        let isZoomed = false; // Flag to track if the camera is zoomed in
+        let currentlyHovered = null; // Stores the currently hovered continent object
+        let currentFocusIndex = -1; // Index for keyboard navigation focus
+
+        /**
+         * Gets the continent object intersected by the mouse ray.
+         * @param {MouseEvent} event - The mouse event.
+         * @returns {THREE.Object3D|null} The intersected continent object or null.
+         */
+        function getIntersectedObject(event) {
+            // Normalize mouse coordinates to -1 to +1 range
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera); // Update raycaster with current camera and mouse position
+
+            // Find intersections with interactive objects
+            const intersects = raycaster.intersectObjects(interactiveObjects, true);
+            if (intersects.length > 0) {
+                let clickedObject = intersects[0].object;
+                // Traverse up the parent chain to find the main continent group
+                while (clickedObject.parent && !clickedObject.userData.isContinent) {
+                    clickedObject = clickedObject.parent;
+                }
+                return clickedObject.userData.isContinent ? clickedObject : null;
+            }
+            return null;
+        }
+
+        /**
+         * Applies hover/unhover effects to a continent icon.
+         * @param {THREE.Object3D|null} icon - The continent object to highlight, or null to unhighlight all.
+         * @param {boolean} isHover - True if triggered by mouse hover, false if by keyboard.
+         */
+        function highlightIcon(icon, isHover) {
+            // If there was a previously hovered icon and it's not the current one
+            if (currentlyHovered && currentlyHovered !== icon) {
+                // Scale back to original size
+                gsap.to(currentlyHovered.scale, {
+                    x: currentlyHovered.userData.originalScale,
+                    y: currentlyHovered.userData.originalScale,
+                    duration: 0.3, ease: 'power2.out'
+                });
+                // Remove emissive glow
+                gsap.to(currentlyHovered.children[0].material.emissive, { r: 0, g: 0, b: 0, duration: 0.5 });
+            }
+
+            // If a new icon is provided and it's different from the currently hovered one
+            if (icon && currentlyHovered !== icon) {
+                // Scale up with an elastic effect
+                gsap.to(icon.scale, {
+                    x: icon.userData.originalScale * 1.2,
+                    y: icon.userData.originalScale * 1.2,
+                    duration: 0.5, ease: 'elastic.out(1, 0.5)'
+                });
+                // Add a subtle emissive glow
+                gsap.to(icon.children[0].material.emissive, { r: 0.3, g: 0.3, b: 0.3, duration: 0.5 });
+                currentlyHovered = icon; // Update currently hovered icon
+                if(isHover) document.body.style.cursor = 'pointer'; // Change cursor for mouse hover
+            } else if (!icon && currentlyHovered) { // If no icon is provided but one was hovered
+                document.body.style.cursor = 'default'; // Reset cursor
+                currentlyHovered = null; // Clear currently hovered icon
+            }
+        }
+
+        /**
+         * Triggers the zoom-in animation to a selected continent.
+         * @param {THREE.Object3D} icon - The continent object to focus on.
+         */
+        function triggerInteraction(icon) {
+            // Prevent interaction if already animating or zoomed, or if no icon is provided
+            if (isAnimating || isZoomed || !icon) return;
+            isAnimating = true; // Set animation flag
+            zoomToContinent(icon); // Start zoom animation
+            showContinentLabel(icon.userData.name); // Display continent name
+        }
+
+        /**
+         * Animates the camera to zoom in on a specific continent.
+         * @param {THREE.Object3D} targetObject - The continent object to zoom towards.
+         */
+        function zoomToContinent(targetObject) {
+            const targetPosition = new THREE.Vector3();
+            targetObject.getWorldPosition(targetPosition); // Get world position of the target
+            // Calculate camera target position: normalized vector from center to target, scaled by FOCUSED_CAMERA_Z
+            const cameraTargetPosition = targetPosition.clone().normalize().multiplyScalar(FOCUSED_CAMERA_Z);
+
+            // Fade out other continents for better focus
+            interactiveObjects.forEach(obj => {
+                if (obj !== targetObject) {
+                    gsap.to(obj.children[0].material, { opacity: 0, duration: 0.5 });
+                }
+            });
+
+            // GSAP timeline for camera animation
+            gsap.timeline({ onComplete: () => { 
+                isAnimating = false; // Clear animation flag
+                isZoomed = true; // Set zoomed flag
+                controls.enabled = false; // Disable orbit controls when zoomed
+                resetButton.classList.add('visible'); // Show reset button
+            }})
+            .to(camera.position, { // Animate camera position
+                x: cameraTargetPosition.x, y: cameraTargetPosition.y, z: cameraTargetPosition.z,
+                duration: 1.2, ease: 'power3.inOut' // Smooth ease
+            }, 0) // Start at time 0
+            .to(controls.target, { // Animate controls target (where the camera looks)
+                x: 0, y: 0, z: 0, // Keep looking at the center of the planet
+                duration: 1.2, ease: 'power3.inOut'
+            }, 0); // Start at time 0
+        }
+
+        /**
+         * Resets the camera view back to the initial global view.
+         */
+        function resetCameraView() {
+            // Prevent reset if animating or not zoomed
+            if (isAnimating || !isZoomed) return;
+            isAnimating = true; // Set animation flag
+            isZoomed = false; // Clear zoomed flag
+            resetButton.classList.remove('visible'); // Hide reset button
+            highlightIcon(null); // Clear any highlight
+            currentFocusIndex = -1; // Reset keyboard focus index
+
+            // Fade in all continents
+            interactiveObjects.forEach(obj => {
+                gsap.to(obj.children[0].material, { opacity: 1, duration: 1 });
+            });
+
+            // GSAP timeline for camera reset animation
+            gsap.timeline({ onComplete: () => { 
+                isAnimating = false; // Clear animation flag
+                controls.enabled = true; // Re-enable orbit controls
+            }})
+            .to(camera.position, { // Animate camera position back to initial
+                x: initialCameraPosition.x, y: initialCameraPosition.y, z: initialCameraPosition.z,
+                duration: 1.2, ease: 'power3.inOut'
+            }, 0)
+            .to(controls.target, { // Animate controls target back to center
+                x: 0, y: 0, z: 0,
+                duration: 1.2, ease: 'power3.inOut'
+            }, 0);
+        }
+        
+        /**
+         * Displays the continent name label with a fade-in/fade-out animation.
+         * @param {string} name - The name of the continent.
+         */
+        function showContinentLabel(name) {
+            continentLabel.textContent = name;
+            // Fade in and slide up
+            gsap.fromTo(continentLabel, { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power4.out', delay: 0.5 });
+            // Fade out and slide up further after a delay
+            gsap.to(continentLabel, { opacity: 0, y: -50, duration: 0.8, ease: 'power4.in', delay: 2.5 });
+        }
+
+        // 6. EVENT LISTENERS - Handle user input
+        window.addEventListener('click', (event) => {
+            if (!isZoomed) { // Only allow clicks on continents if not already zoomed
+                const intersected = getIntersectedObject(event);
+                if (intersected) triggerInteraction(intersected);
+            }
+        });
+        
+        window.addEventListener('mousemove', (event) => {
+            // Disable hover effects if animating or zoomed
+            if (isAnimating || isZoomed) {
+                highlightIcon(null, true); // Clear any existing highlight
+                return;
+            }
+            const intersected = getIntersectedObject(event);
+            highlightIcon(intersected, true); // Highlight the hovered continent
+        });
+
+        window.addEventListener('keydown', (event) => {
+            if (isAnimating) return; // Prevent input during animations
+
+            if (isZoomed) {
+                // Allow escape or backspace to reset view when zoomed
+                if (event.key === 'Escape' || event.key === 'Backspace') resetCameraView();
+                return;
+            }
+
+            const rotationAmount = 0.1; // Amount of rotation for arrow keys
+            switch(event.key) {
+                case 'ArrowLeft': planetGroup.rotation.y -= rotationAmount; break;
+                case 'ArrowRight': planetGroup.rotation.y += rotationAmount; break;
+                case 'ArrowUp': planetGroup.rotation.x -= rotationAmount; break;
+                case 'ArrowDown': planetGroup.rotation.x += rotationAmount; break;
+                case 'Tab':
+                    event.preventDefault(); // Prevent default tab behavior (e.g., focusing other elements)
+                    // Cycle through interactive objects for keyboard focus
+                    currentFocusIndex = (currentFocusIndex + (event.shiftKey ? -1 : 1) + interactiveObjects.length) % interactiveObjects.length;
+                    highlightIcon(interactiveObjects[currentFocusIndex], false); // Highlight with keyboard flag
+                    break;
+                case 'Enter':
+                    // Trigger interaction if a continent is focused via keyboard
+                    if (currentFocusIndex !== -1) triggerInteraction(interactiveObjects[currentFocusIndex]);
+                    break;
+                case 'Escape':
+                    // Clear keyboard focus/highlight
+                    if (currentlyHovered) {
+                        highlightIcon(null, false);
+                        currentFocusIndex = -1;
+                    }
+                    break;
+            }
+        });
+
+        resetButton.addEventListener('click', resetCameraView); // Reset button click handler
+        
+        // 7. RENDER LOOP - Continuously update the scene
+        function animate() {
+            requestAnimationFrame(animate); // Request next frame
+            controls.update(); // Update OrbitControls (for damping)
+            if (!isZoomed) {
+                planetGroup.rotation.y += 0.0003; // Continuous slow rotation of the planet
+            }
+
+            // Twinkle stars effect
+            const time = Date.now() * 0.0001;
+            stars.material.opacity = Math.sin(time * 5) * 0.2 + 0.8; // Oscillate opacity for twinkling
+
+            renderer.render(scene, camera); // Render the scene
+        }
+        
+        // 8. INITIALIZATION - Setup and start the experience
+        function init() {
+            // Intro Animation: Camera zooms into its initial position
+            gsap.to(camera.position, { z: INITIAL_CAMERA_Z, duration: 2.5, ease: 'power3.inOut' });
+            // UI fades in after a delay
+            gsap.to(uiContainer, { opacity: 1, duration: 2, delay: 1 });
+            animate(); // Start the animation loop
+        }
+
+        window.onload = init; // Call init when the window has fully loaded
+
+        // Handle window resize events to keep the scene responsive
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; // Update camera aspect ratio
+            camera.updateProjectionMatrix(); // Recalculate projection matrix
+            renderer.setSize(window.innerWidth, window.innerHeight); // Resize renderer
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Re-optimize pixel ratio
+        });
+
+    </script>
+</body>
+</html>
