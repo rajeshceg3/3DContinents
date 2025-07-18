@@ -119,13 +119,13 @@
         const INITIAL_CAMERA_Z = 15; // Initial Z position of the camera
         const FOCUSED_CAMERA_Z = 8; // Z position of the camera when focusing on a continent
         const PASTEL_PALETTE = { // Color palette for continents
-            blue: '#a2d2ff',
-            pink: '#ffafcc',
-            purple: '#cdb4db',
-            yellow: '#fff3b0',
-            green: '#bde0fe',
-            orange: '#ffc09f',
-            gray: '#d4d4d4',
+            blue: '#89CFF0',
+            pink: '#F4C2C2',
+            purple: '#E6E6FA',
+            yellow: '#FFFACD',
+            green: '#98FB98',
+            orange: '#FFDAB9',
+            gray: '#E0E0E0',
         };
 
         // 2. SCENE SETUP - Initialize Three.js components
@@ -147,9 +147,11 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for device pixel ratio
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft ambient light
+        const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x000000, 0.5);
+        scene.add(hemisphereLight);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Soft ambient light
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5); // Stronger directional light
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2); // Stronger directional light
         directionalLight.position.set(5, 5, 5); // Position of the light source
         scene.add(directionalLight);
 
@@ -353,12 +355,16 @@
             if (icon && currentlyHovered !== icon) {
                 // Scale up with an elastic effect
                 gsap.to(icon.scale, {
-                    x: icon.userData.originalScale * 1.2,
-                    y: icon.userData.originalScale * 1.2,
-                    duration: 0.5, ease: 'elastic.out(1, 0.5)'
+                    x: icon.userData.originalScale * 1.4,
+                    y: icon.userData.originalScale * 1.4,
+                    duration: 0.8, ease: 'elastic.out(1, 0.3)',
+                    onUpdate: () => {
+                        // Add a subtle wobble
+                        icon.rotation.z = Math.sin(Date.now() * 0.01) * 0.1;
+                    }
                 });
                 // Add a subtle emissive glow
-                gsap.to(icon.children[0].material.emissive, { r: 0.3, g: 0.3, b: 0.3, duration: 0.5 });
+                gsap.to(icon.children[0].material.emissive, { r: 0.5, g: 0.5, b: 0.5, duration: 0.5 });
                 currentlyHovered = icon; // Update currently hovered icon
                 if(isHover) document.body.style.cursor = 'pointer'; // Change cursor for mouse hover
             } else if (!icon && currentlyHovered) { // If no icon is provided but one was hovered
@@ -371,10 +377,61 @@
          * Triggers the zoom-in animation to a selected continent.
          * @param {THREE.Object3D} icon - The continent object to focus on.
          */
+        function createParticleBurst(position) {
+            const particleCount = 100;
+            const particles = new THREE.BufferGeometry();
+            const pMaterial = new THREE.PointsMaterial({
+                color: 0xFFFFFF,
+                size: 0.1,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                depthWrite: false
+            });
+
+            const vertices = [];
+            for (let i = 0; i < particleCount; i++) {
+                const vertex = new THREE.Vector3(
+                    position.x,
+                    position.y,
+                    position.z
+                );
+                vertices.push(vertex.x, vertex.y, vertex.z);
+            }
+            particles.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const particleSystem = new THREE.Points(particles, pMaterial);
+            scene.add(particleSystem);
+
+            const particlePositions = particleSystem.geometry.attributes.position;
+            for (let i = 0; i < particlePositions.count; i++) {
+                const i3 = i * 3;
+                gsap.to(particlePositions.array, {
+                    [i3]: position.x + (Math.random() - 0.5) * 5,
+                    [i3 + 1]: position.y + (Math.random() - 0.5) * 5,
+                    [i3 + 2]: position.z + (Math.random() - 0.5) * 5,
+                    duration: 1,
+                    ease: 'power4.out',
+                    onUpdate: () => {
+                        particlePositions.needsUpdate = true;
+                    }
+                });
+            }
+
+            gsap.to(pMaterial, {
+                opacity: 0,
+                duration: 1,
+                ease: 'power4.out',
+                onComplete: () => {
+                    scene.remove(particleSystem);
+                }
+            });
+        }
+
         function triggerInteraction(icon) {
             // Prevent interaction if already animating or zoomed, or if no icon is provided
             if (isAnimating || isZoomed || !icon) return;
             isAnimating = true; // Set animation flag
+            createParticleBurst(icon.position); // Create particle burst
             zoomToContinent(icon); // Start zoom animation
             showContinentLabel(icon.userData.name); // Display continent name
         }
@@ -397,19 +454,28 @@
             });
 
             // GSAP timeline for camera animation
-            gsap.timeline({ onComplete: () => { 
+            const tl = gsap.timeline({ onComplete: () => {
                 isAnimating = false; // Clear animation flag
                 isZoomed = true; // Set zoomed flag
                 controls.enabled = false; // Disable orbit controls when zoomed
                 resetButton.classList.add('visible'); // Show reset button
-            }})
-            .to(camera.position, { // Animate camera position
-                x: cameraTargetPosition.x, y: cameraTargetPosition.y, z: cameraTargetPosition.z,
-                duration: 1.2, ease: 'power3.inOut' // Smooth ease
+            }});
+
+            tl.to(camera.position, { // Animate camera position
+                x: cameraTargetPosition.x,
+                y: cameraTargetPosition.y,
+                z: cameraTargetPosition.z,
+                duration: 1.5,
+                ease: 'power4.inOut',
+                onUpdate: () => {
+                    // Make the planet wobble as the camera moves
+                    planetGroup.rotation.x += 0.001;
+                    planetGroup.rotation.y += 0.001;
+                }
             }, 0) // Start at time 0
             .to(controls.target, { // Animate controls target (where the camera looks)
                 x: 0, y: 0, z: 0, // Keep looking at the center of the planet
-                duration: 1.2, ease: 'power3.inOut'
+                duration: 1.5, ease: 'power4.inOut'
             }, 0); // Start at time 0
         }
 
