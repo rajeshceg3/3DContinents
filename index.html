@@ -118,6 +118,37 @@
             line-height: 1.6;
             color: #584b3e;
         }
+
+        #quizButton {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: all;
+            transition: background-color 0.3s;
+        }
+
+        #quizButton:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        #quiz-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -135,6 +166,12 @@
     </div>
     
     <button id="resetButton">Reset View</button>
+    <button id="quizButton">Quiz Mode</button>
+
+    <div id="quiz-container" style="display: none;">
+        <h2 id="quiz-question"></h2>
+        <p>Score: <span id="quiz-score">0</span></p>
+    </div>
 
     <canvas id="webgl"></canvas>
 
@@ -173,6 +210,14 @@
         const postcard = document.getElementById('postcard');
         const postcardTitle = document.getElementById('postcard-title');
         const postcardText = document.getElementById('postcard-text');
+        const quizButton = document.getElementById('quizButton');
+        const quizContainer = document.getElementById('quiz-container');
+        const quizQuestion = document.getElementById('quiz-question');
+        const quizScore = document.getElementById('quiz-score');
+
+        let isQuizMode = false;
+        let quizScoreValue = 0;
+        let currentQuizQuestion = null;
 
         // Camera setup
         const initialCameraPosition = new THREE.Vector3(0, 0, INITIAL_CAMERA_Z);
@@ -569,9 +614,57 @@
             gsap.fromTo(postcard, { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power4.out', delay: 0.5 });
         }
 
+        function startQuiz() {
+            isQuizMode = true;
+            quizScoreValue = 0;
+            quizScore.textContent = quizScoreValue;
+            quizContainer.style.display = 'block';
+            quizButton.textContent = 'Exit Quiz';
+            resetCameraView();
+            nextQuizQuestion();
+        }
+
+        function endQuiz() {
+            isQuizMode = false;
+            quizContainer.style.display = 'none';
+            quizButton.textContent = 'Quiz Mode';
+            alert(`Quiz finished! Your score: ${quizScoreValue}`);
+        }
+
+        function nextQuizQuestion() {
+            if (continents.length === 0) {
+                endQuiz();
+                return;
+            }
+
+            const randomIndex = Math.floor(Math.random() * continents.length);
+            currentQuizQuestion = continents[randomIndex];
+            continents.splice(randomIndex, 1);
+
+            quizQuestion.textContent = `Where is ${currentQuizQuestion.name}?`;
+        }
+
+        function checkQuizAnswer(selectedContinent) {
+            if (!isQuizMode) return;
+
+            if (selectedContinent.userData.name === currentQuizQuestion.name) {
+                quizScoreValue++;
+                quizScore.textContent = quizScoreValue;
+                alert('Correct!');
+                nextQuizQuestion();
+            } else {
+                alert('Try Again!');
+            }
+        }
+
         // 6. EVENT LISTENERS - Handle user input
         window.addEventListener('click', (event) => {
-            if (!isZoomed) { // Only allow clicks on continents if not already zoomed
+            if (isQuizMode) {
+                const intersected = getIntersectedObject(event);
+                if (intersected) {
+                    checkQuizAnswer(intersected);
+                }
+            } else if (!isZoomed) { // Only allow clicks on continents if not already zoomed
                 const intersected = getIntersectedObject(event);
                 if (intersected) triggerInteraction(intersected);
             }
@@ -624,6 +717,14 @@
 
         resetButton.addEventListener('click', resetCameraView); // Reset button click handler
         
+        quizButton.addEventListener('click', () => {
+            if (isQuizMode) {
+                endQuiz();
+            } else {
+                startQuiz();
+            }
+        });
+
         // 7. RENDER LOOP - Continuously update the scene
         function animate() {
             requestAnimationFrame(animate); // Request next frame
