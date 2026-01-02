@@ -1,0 +1,18 @@
+{
+  "name": "aether-3d-continents",
+  "version": "1.0.0",
+  "description": "Interactive 3D Planetary Archive",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "gsap": "^3.12.2",
+    "jsdom": "^27.4.0",
+    "three": "^0.157.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  }
+}
