@@ -2,6 +2,7 @@ import { state } from '../State.js';
 import { CONFIG } from '../Config.js';
 import { continentsData } from '../Data/continents.js';
 import * as THREE from 'three';
+import gsap from 'gsap';
 
 export class UIManager {
     constructor(sceneManager) {
@@ -102,7 +103,7 @@ export class UIManager {
         });
     }
 
-    onClick(event) {
+    onClick() {
         if (state.animating) return;
 
         // Check if click was on UI elements (ignore)
