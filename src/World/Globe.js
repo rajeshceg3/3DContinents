@@ -122,4 +122,37 @@ export class Globe {
     getInteractiveObjects() {
         return this.interactiveObjects;
     }
+
+    dispose() {
+        // Dispose Planet
+        if (this.planet) {
+            this.scene.remove(this.planet);
+            if (this.planet.geometry) this.planet.geometry.dispose();
+            if (this.planet.material) this.planet.material.dispose();
+        }
+
+        // Dispose Atmosphere
+        if (this.atmosphere) {
+            this.scene.remove(this.atmosphere);
+            if (this.atmosphere.geometry) this.atmosphere.geometry.dispose();
+            if (this.atmosphere.material) this.atmosphere.material.dispose();
+        }
+
+        // Dispose Continents
+        if (this.continentsGroup) {
+            // Remove from planet (already removed if planet is removed, but good practice)
+            if (this.planet) this.planet.remove(this.continentsGroup);
+
+            // Dispose interactive objects (continents)
+            this.interactiveObjects.forEach(group => {
+                if (group.children) {
+                    group.children.forEach(mesh => {
+                        if (mesh.geometry) mesh.geometry.dispose();
+                        if (mesh.material) mesh.material.dispose();
+                    });
+                }
+            });
+            this.interactiveObjects = [];
+        }
+    }
 }
