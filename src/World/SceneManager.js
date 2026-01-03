@@ -13,19 +13,23 @@ export class SceneManager {
     init() {
         // Scene
         this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.02);
 
         // Camera
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.z = CONFIG.camZ + 10; // Start far
+        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.z = CONFIG.camZ + 10;
 
         // Renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             antialias: true,
-            alpha: true
+            alpha: true,
+            powerPreference: "high-performance"
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.2;
 
         // Controls
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -36,19 +40,23 @@ export class SceneManager {
         this.controls.minDistance = 6;
         this.controls.maxDistance = 25;
         this.controls.autoRotate = true;
-        this.controls.autoRotateSpeed = 0.5;
+        this.controls.autoRotateSpeed = 0.8;
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // Lighting (Soft Studio Setup)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         this.scene.add(ambientLight);
 
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        mainLight.position.set(10, 10, 10);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(5, 10, 7);
         this.scene.add(mainLight);
 
-        const rimLight = new THREE.DirectionalLight(0x4455ff, 1.0);
-        rimLight.position.set(-10, 5, -10);
-        this.scene.add(rimLight);
+        const fillLight = new THREE.DirectionalLight(0xE6E6FA, 0.8); // Lavender fill
+        fillLight.position.set(-5, 0, 5);
+        this.scene.add(fillLight);
+
+        const backLight = new THREE.DirectionalLight(0xFFDAB9, 1.0); // Peach rim
+        backLight.position.set(0, 5, -10);
+        this.scene.add(backLight);
 
         // World Objects
         this.starfield = createStarfield();
@@ -67,9 +75,6 @@ export class SceneManager {
     }
 
     render() {
-        const time = performance.now() * 0.001;
-        if(this.starfield.material.uniforms) this.starfield.material.uniforms.time.value = time;
-
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     }

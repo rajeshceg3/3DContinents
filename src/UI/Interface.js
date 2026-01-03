@@ -80,21 +80,23 @@ export class UIManager {
     }
 
     animateHover(obj, isHovering) {
-        const scaleVal = obj.userData.originalScale * (isHovering ? 1.2 : 1.0);
-        const targetEmissive = isHovering ? 0.8 : 0.2;
-        const duration = 0.4;
+        const scaleVal = obj.userData.originalScale * (isHovering ? 1.1 : 1.0);
+        // Make it pop more with color
+        const targetEmissiveIntensity = isHovering ? 0.5 : 0;
+        const duration = 0.5;
 
         gsap.to(obj.scale, {
             x: scaleVal,
             y: scaleVal,
             z: scaleVal,
             duration: duration,
-            ease: "back.out(1.7)"
+            ease: "elastic.out(1, 0.5)"
         });
 
         obj.children.forEach(mesh => {
+             // Animate material properties
              gsap.to(mesh.material, {
-                emissiveIntensity: targetEmissive,
+                emissiveIntensity: targetEmissiveIntensity,
                 duration: duration
              });
         });
@@ -102,6 +104,9 @@ export class UIManager {
 
     onClick(event) {
         if (state.animating) return;
+
+        // Check if click was on UI elements (ignore)
+        if (event.target.closest('.btn') || event.target.closest('.info-card') || event.target.closest('.close-btn')) return;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersects = this.raycaster.intersectObjects(this.sceneManager.getInteractiveObjects(), true);
@@ -129,14 +134,15 @@ export class UIManager {
         this.createParticleBurst(obj.position, obj.userData.baseColor);
 
         // Target position: maintain same direction vector but at distance
-        const targetPos = new THREE.Vector3().copy(obj.position).normalize().multiplyScalar(CONFIG.radius + 4);
+        const targetPos = new THREE.Vector3().copy(obj.position).normalize().multiplyScalar(CONFIG.radius + 6);
 
+        // Smooth camera transition
         gsap.to(this.camera.position, {
             x: targetPos.x,
             y: targetPos.y,
             z: targetPos.z,
-            duration: 2,
-            ease: "power3.inOut",
+            duration: 1.8,
+            ease: "power2.inOut",
             onUpdate: () => this.camera.lookAt(0,0,0)
         });
 
@@ -163,21 +169,37 @@ export class UIManager {
     }
 
     createParticleBurst(position, color) {
-        const particleCount = 100;
+        const particleCount = 60;
         const geometry = new THREE.BufferGeometry();
         const positions = [];
+        const sizes = [];
 
         for(let i = 0; i < particleCount; i++) {
             positions.push(position.x, position.y, position.z);
+            sizes.push(Math.random() * 0.5);
         }
 
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+
+        // Create a soft circle texture for particles
+        const canvas = document.createElement('canvas');
+        canvas.width = 32; canvas.height = 32;
+        const context = canvas.getContext('2d');
+        const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        context.fillStyle = gradient;
+        context.fillRect(0,0,32,32);
+        const texture = new THREE.CanvasTexture(canvas);
 
         const material = new THREE.PointsMaterial({
             color: color,
-            size: 0.1,
+            size: 0.5,
+            map: texture,
             transparent: true,
-            opacity: 1,
+            opacity: 0.8,
+            depthWrite: false,
             blending: THREE.AdditiveBlending
         });
 
@@ -187,9 +209,9 @@ export class UIManager {
         const speeds = [];
         for(let i=0; i<particleCount; i++) {
             speeds.push({
-                x: (Math.random() - 0.5) * 0.2,
-                y: (Math.random() - 0.5) * 0.2,
-                z: (Math.random() - 0.5) * 0.2
+                x: (Math.random() - 0.5) * 0.3,
+                y: (Math.random() - 0.5) * 0.3,
+                z: (Math.random() - 0.5) * 0.3 + 0.5 // Bias outwards
             });
         }
 
@@ -198,7 +220,7 @@ export class UIManager {
 
         gsap.to(obj, {
             t: 1,
-            duration: 1.5,
+            duration: 2,
             ease: "power2.out",
             onUpdate: () => {
                 for(let i=0; i<particleCount; i++) {
@@ -208,12 +230,13 @@ export class UIManager {
                     positionsAttribute.array[ix+2] += speeds[i].z;
                 }
                 positionsAttribute.needsUpdate = true;
-                material.opacity = 1 - obj.t;
+                material.opacity = 0.8 * (1 - obj.t);
             },
             onComplete: () => {
                 this.scene.remove(particles);
                 geometry.dispose();
                 material.dispose();
+                texture.dispose();
             }
         });
     }
@@ -222,7 +245,7 @@ export class UIManager {
         this.cardTitle.innerText = data.name;
         this.cardText.innerText = data.trivia;
         this.infoCard.classList.add('visible');
-        setTimeout(() => { state.animating = false; }, 2000);
+        setTimeout(() => { state.animating = false; }, 1500);
     }
 
     hideInfoCard() {
@@ -235,12 +258,14 @@ export class UIManager {
         state.quizMode = !state.quizMode;
         if (state.quizMode) {
             this.quizBtn.innerText = "Exit Exploration";
-            this.quizBtn.style.background = "var(--glass-highlight)";
+            this.quizBtn.style.background = "#fff";
+            this.quizBtn.style.color = "var(--text-primary)";
             this.resetView();
             this.startQuiz();
         } else {
             this.quizBtn.innerText = "Exploration Mode";
             this.quizBtn.style.background = "";
+            this.quizBtn.style.color = "";
             this.endQuiz();
         }
     }
@@ -255,7 +280,8 @@ export class UIManager {
 
     endQuiz() {
         this.quizHud.classList.remove('visible');
-        alert(`Exploration Complete! Final Score: ${state.score}`);
+        // Removed alert for a cleaner experience, maybe show a modal later or just reset
+        console.log(`Exploration Complete! Final Score: ${state.score}`);
     }
 
     nextQuestion() {
@@ -275,7 +301,6 @@ export class UIManager {
     }
 
     handleQuizAnswer(obj) {
-        // Fix for Score Farming: Check flag
         if (state.processingAnswer) return;
 
         if (obj.userData.name === state.currentQuestion.name) {
@@ -284,32 +309,33 @@ export class UIManager {
             state.score += 100;
             this.quizScoreEl.innerText = `Score: ${state.score}`;
 
-            const flash = obj.children[0].material.emissive.getHex();
-            obj.children.forEach(m => m.material.emissive.setHex(0x00ff00));
+            // Success animation
+            this.createParticleBurst(obj.position, 0x00FF00); // Green burst
+
+            const originalEmissive = obj.children[0].material.emissive.getHex();
+
+            // Flash Green
+            obj.children.forEach(m => {
+                gsap.to(m.material.emissive, {r:0, g:1, b:0, duration: 0.2, yoyo: true, repeat: 1});
+            });
 
             setTimeout(() => {
-                 obj.children.forEach(m => m.material.emissive.setHex(flash));
                  this.nextQuestion();
-            }, 500);
+            }, 800);
 
         } else {
             // Wrong
-            // Fix for Camera Shake: Use CSS Shake instead of camera position
             this.triggerShakeEffect();
+            // Flash Red
+            obj.children.forEach(m => {
+                gsap.to(m.material.emissive, {r:1, g:0, b:0, duration: 0.2, yoyo: true, repeat: 1});
+            });
         }
     }
 
     triggerShakeEffect() {
-        // CSS based shake on canvas
-        // We can add a temporary class to canvas
-        this.webglCanvas.style.animation = "shake 0.5s cubic-bezier(.36,.07,.19,.97) both";
-        this.webglCanvas.style.transform = "translate3d(0, 0, 0)";
-
-        // Add style rule dynamically if not in CSS, but easier to use inline styles or existing stylesheet
-        // Let's assume we can inject style or use JS animation
-        // Since we are in JS refactor, let's use GSAP on the DOM element for shake
         gsap.to(this.webglCanvas, {
-            x: 5,
+            x: 10,
             duration: 0.05,
             yoyo: true,
             repeat: 5,
@@ -321,14 +347,16 @@ export class UIManager {
 
     // --- Lifecycle ---
     startIntro() {
+        // Wait for fonts to load ideally, but timeout works for now
         setTimeout(() => {
             this.loader.style.opacity = '0';
             setTimeout(() => this.loader.style.display = 'none', 1000);
 
+            // Intro Camera move
             gsap.fromTo(this.camera.position,
-                { z: 40 },
-                { z: CONFIG.camZ, duration: 3, ease: "power4.out" }
+                { z: 40, y: 10 },
+                { z: CONFIG.camZ, y: 0, duration: 3.5, ease: "power3.inOut" }
             );
-        }, 500);
+        }, 1500); // Slightly longer load to admire the loader
     }
 }

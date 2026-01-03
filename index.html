@@ -3,21 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aether | The Continent Explorer</title>
+    <title>Aether | The Pastel World</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Montserrat:wght@200;300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --glass-highlight: rgba(255, 255, 255, 0.2);
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255, 255, 255, 0.7);
-            --accent-color: #ffd700;
+            /* Pastel Palette */
+            --bg-color: #FDFBF7;
+            --glass-bg: rgba(255, 255, 255, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --glass-highlight: rgba(255, 255, 255, 0.7);
+            --text-primary: #2F4F4F; /* Dark Slate Gray */
+            --text-secondary: #708090; /* Slate Gray */
+            --accent-color: #F4C430; /* Saffron/Gold */
+            --accent-hover: #FFDAB9; /* Peach Puff */
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
 
         * {
@@ -29,8 +33,8 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #050510;
-            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-color);
+            font-family: 'Lato', sans-serif;
             color: var(--text-primary);
         }
 
@@ -52,7 +56,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 2rem;
+            padding: 3rem;
             z-index: 10;
         }
 
@@ -65,74 +69,67 @@
         }
 
         h1 {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 4rem;
-            font-weight: 300;
+            font-family: 'Playfair Display', serif;
+            font-size: 5rem;
+            font-weight: 700;
             margin: 0;
-            letter-spacing: 0.1em;
-            background: linear-gradient(to right, #fff, #a5a5a5);
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #2F4F4F, #708090);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(255,255,255,0.2);
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }
 
         .subtitle {
-            font-size: 0.9rem;
-            letter-spacing: 0.3em;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
             text-transform: uppercase;
             color: var(--text-secondary);
             margin-top: 0.5rem;
+            font-weight: 300;
         }
 
         /* Controls Area */
         .controls {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 20px;
             align-items: flex-end;
             width: 100%;
-            pointer-events: none; /* Children will re-enable pointer-events */
+            pointer-events: none;
+            margin-bottom: 2rem;
         }
 
         .btn {
             pointer-events: auto;
             background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             color: var(--text-primary);
-            padding: 12px 30px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.8rem;
-            letter-spacing: 0.15em;
+            padding: 14px 40px;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            border-radius: 50px;
+            border-radius: 30px;
             cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             position: relative;
             overflow: hidden;
             outline: none;
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-            transition: 0.5s;
+            box-shadow: var(--shadow);
         }
 
         .btn:hover {
-            background: var(--glass-highlight);
-            box-shadow: 0 0 20px rgba(255,255,255,0.1);
-            transform: translateY(-2px);
-            border-color: rgba(255,255,255,0.3);
+            background: #fff;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+            border-color: #fff;
         }
 
-        .btn:hover::before {
-            left: 100%;
+        .btn:active {
+            transform: translateY(-1px);
         }
 
         /* Info Card / Postcard */
@@ -142,21 +139,21 @@
             left: 50%;
             transform: translate(-50%, -50%);
             width: 100%;
-            max-width: 500px;
+            max-width: 550px;
             pointer-events: none;
-            perspective: 1000px;
+            perspective: 1200px;
             z-index: 20;
         }
 
         .info-card {
-            background: rgba(15, 15, 25, 0.65);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            padding: 3rem;
-            color: #fff;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            padding: 4rem 3rem;
+            color: var(--text-primary);
+            box-shadow: 0 30px 60px -12px rgba(50, 50, 93, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.3);
             opacity: 0;
             transform: rotateX(10deg) translateY(50px) scale(0.9);
             transform-origin: center top;
@@ -166,13 +163,11 @@
             overflow: hidden;
         }
 
-        /* Elegant border accent */
-        .info-card::after {
+        .info-card::before {
             content: '';
             position: absolute;
-            top: 5px; left: 5px; right: 5px; bottom: 5px;
-            border: 1px solid rgba(255,255,255,0.1);
-            pointer-events: none;
+            top: 0; left: 0; right: 0; height: 6px;
+            background: linear-gradient(90deg, #FFD1DC, #E6E6FA, #B0E0E6);
         }
 
         .info-card.visible {
@@ -181,22 +176,32 @@
         }
 
         .info-card h2 {
-            font-family: 'Cormorant Garamond', serif;
+            font-family: 'Playfair Display', serif;
             font-size: 3.5rem;
-            font-weight: 300;
-            margin: 0 0 1rem 0;
+            font-weight: 700;
+            margin: 0 0 1.5rem 0;
             line-height: 1;
-            background: linear-gradient(45deg, #fff, #e0e0e0);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-primary);
+            position: relative;
+            display: inline-block;
+        }
+
+        .info-card h2::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 40%;
+            height: 2px;
+            background-color: var(--accent-color);
         }
 
         .info-card p {
-            font-family: 'Montserrat', sans-serif;
+            font-family: 'Lato', sans-serif;
             font-weight: 300;
-            font-size: 1rem;
+            font-size: 1.1rem;
             line-height: 1.8;
-            color: rgba(255,255,255,0.8);
+            color: #555;
             margin: 0;
         }
 
@@ -204,24 +209,32 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.5);
-            font-size: 1.5rem;
+            background: transparent;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
             cursor: pointer;
-            transition: color 0.3s;
+            transition: all 0.3s;
             z-index: 5;
         }
 
         .close-btn:hover {
-            color: white;
+            color: var(--text-primary);
+            background: rgba(0,0,0,0.05);
+            transform: rotate(90deg);
         }
 
         /* Loading Overlay */
         #loader {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: #020205;
+            background: #FDFBF7;
             z-index: 100;
             display: flex;
             justify-content: center;
@@ -229,12 +242,26 @@
             transition: opacity 1s ease;
         }
 
+        .loader-content {
+            text-align: center;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-top: 2px solid var(--accent-color);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            animation: spin 1s linear infinite;
+        }
+
         .loader-text {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 1.5rem;
-            letter-spacing: 0.2em;
-            color: rgba(255,255,255,0.5);
-            animation: pulse 2s infinite;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            font-style: italic;
         }
 
         /* Animations */
@@ -245,15 +272,15 @@
             }
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.8; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Quiz Mode Styles */
         .quiz-hud {
             position: absolute;
-            top: 20%;
+            top: 25%;
             left: 50%;
             transform: translateX(-50%);
             text-align: center;
@@ -267,18 +294,24 @@
         }
 
         .quiz-question {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 2.5rem;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            margin-bottom: 10px;
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            color: var(--text-primary);
+            text-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            font-style: italic;
         }
 
         .quiz-score {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1rem;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.9rem;
             letter-spacing: 0.2em;
             text-transform: uppercase;
-            color: var(--accent-color);
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
         }
 
     </style>
@@ -287,14 +320,17 @@
 
     <!-- Loader -->
     <div id="loader">
-        <div class="loader-text">INITIALIZING AETHER...</div>
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Designing the World...</div>
+        </div>
     </div>
 
     <!-- UI Layer -->
     <div class="ui-layer">
         <header>
             <h1>AETHER</h1>
-            <div class="subtitle">Interactive Planetary Archive</div>
+            <div class="subtitle">A Journey Through Earth's Continents</div>
         </header>
 
         <div id="quizHud" class="quiz-hud">
@@ -320,7 +356,6 @@
     <canvas id="webgl"></canvas>
 
     <!-- Scripts -->
-    <!-- External Dependencies via CDN for standalone/no-build capability, but using ES Modules from src -->
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/" } }
