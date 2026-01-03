@@ -2,37 +2,35 @@ import * as THREE from 'three';
 
 const starfieldVertex = `
     varying vec2 vUv;
+    varying vec3 vPosition;
     void main() {
         vUv = uv;
+        vPosition = position;
         vec4 pos = vec4(position, 1.0);
         gl_Position = projectionMatrix * modelViewMatrix * pos;
     }
 `;
 
 const starfieldFragment = `
-    uniform float time;
     varying vec2 vUv;
-
-    // Simple noise function
-    float noise(vec2 st) {
-        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-    }
+    varying vec3 vPosition;
 
     void main() {
-        vec2 uv = vUv;
+        // Pastel Sky Gradient
+        // Top: Soft Lavender/Pink
+        // Bottom: Warm Cream/Peach
 
-        // Deep space gradient
-        vec3 color = mix(vec3(0.02, 0.02, 0.05), vec3(0.05, 0.05, 0.15), uv.y);
+        vec3 topColor = vec3(0.9, 0.82, 0.98); // Lavender
+        vec3 bottomColor = vec3(0.99, 0.98, 0.97); // Cream
 
-        // Stars
-        float star = noise(uv * 100.0 + time * 0.05);
-        if (star > 0.995) {
-            color += vec3(1.0) * (sin(time * 2.0 + uv.x * 100.0) * 0.5 + 0.5);
-        }
+        // Map y position (-100 to 100) to 0-1
+        float y = normalize(vPosition).y * 0.5 + 0.5;
 
-        // Subtle nebula clouds (approximated with noise layers)
-        float cloud = noise(uv * 3.0 + time * 0.02);
-        color += vec3(0.1, 0.0, 0.2) * cloud * 0.3;
+        vec3 color = mix(bottomColor, topColor, y);
+
+        // Add subtle grain/noise for texture
+        float noise = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
+        color -= noise * 0.03;
 
         gl_FragColor = vec4(color, 1.0);
     }
@@ -43,9 +41,6 @@ export function createStarfield() {
     const starMat = new THREE.ShaderMaterial({
         vertexShader: starfieldVertex,
         fragmentShader: starfieldFragment,
-        uniforms: {
-            time: { value: 0 }
-        },
         side: THREE.BackSide
     });
     return new THREE.Mesh(starGeo, starMat);
