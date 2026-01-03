@@ -33,19 +33,25 @@ export class UIManager {
     }
 
     initListeners() {
-        window.addEventListener('mousemove', this.onMouseMove.bind(this));
-        window.addEventListener('click', this.onClick.bind(this));
-        this.closeCard.addEventListener('click', () => {
+        this._onMouseMove = this.onMouseMove.bind(this);
+        this._onClick = this.onClick.bind(this);
+        this._onCloseCardClick = () => {
             this.hideInfoCard();
             this.resetView();
-        });
-        this.resetBtn.addEventListener('click', () => {
+        };
+        this._onResetBtnClick = () => {
             if (state.zoomed) {
                 this.hideInfoCard();
                 this.resetView();
             }
-        });
-        this.quizBtn.addEventListener('click', this.toggleQuizMode.bind(this));
+        };
+        this._onQuizBtnClick = this.toggleQuizMode.bind(this);
+
+        window.addEventListener('mousemove', this._onMouseMove);
+        window.addEventListener('click', this._onClick);
+        this.closeCard.addEventListener('click', this._onCloseCardClick);
+        this.resetBtn.addEventListener('click', this._onResetBtnClick);
+        this.quizBtn.addEventListener('click', this._onQuizBtnClick);
     }
 
     // --- Interaction ---
@@ -103,7 +109,7 @@ export class UIManager {
         });
     }
 
-    onClick() {
+    onClick(event) {
         if (state.animating) return;
 
         // Check if click was on UI elements (ignore)
@@ -313,8 +319,6 @@ export class UIManager {
             // Success animation
             this.createParticleBurst(obj.position, 0x00FF00); // Green burst
 
-            const originalEmissive = obj.children[0].material.emissive.getHex();
-
             // Flash Green
             obj.children.forEach(m => {
                 gsap.to(m.material.emissive, {r:0, g:1, b:0, duration: 0.2, yoyo: true, repeat: 1});
@@ -359,5 +363,13 @@ export class UIManager {
                 { z: CONFIG.camZ, y: 0, duration: 3.5, ease: "power3.inOut" }
             );
         }, 1500); // Slightly longer load to admire the loader
+    }
+
+    dispose() {
+        window.removeEventListener('mousemove', this._onMouseMove);
+        window.removeEventListener('click', this._onClick);
+        if (this.closeCard) this.closeCard.removeEventListener('click', this._onCloseCardClick);
+        if (this.resetBtn) this.resetBtn.removeEventListener('click', this._onResetBtnClick);
+        if (this.quizBtn) this.quizBtn.removeEventListener('click', this._onQuizBtnClick);
     }
 }

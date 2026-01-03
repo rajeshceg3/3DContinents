@@ -65,7 +65,8 @@ export class SceneManager {
         this.globe = new Globe(this.scene);
 
         // Listeners
-        window.addEventListener('resize', this.onResize.bind(this));
+        this._onResize = this.onResize.bind(this);
+        window.addEventListener('resize', this._onResize);
     }
 
     onResize() {
@@ -81,5 +82,29 @@ export class SceneManager {
 
     getInteractiveObjects() {
         return this.globe.getInteractiveObjects();
+    }
+
+    dispose() {
+        // Remove listeners
+        window.removeEventListener('resize', this._onResize);
+
+        // Dispose Controls
+        if (this.controls) this.controls.dispose();
+
+        // Dispose Globe
+        if (this.globe) this.globe.dispose();
+
+        // Dispose Starfield
+        if (this.starfield) {
+            this.scene.remove(this.starfield);
+            if (this.starfield.geometry) this.starfield.geometry.dispose();
+            if (this.starfield.material) this.starfield.material.dispose();
+        }
+
+        // Dispose Renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            // If the canvas is created by us, we might want to remove it, but here it is passed in.
+        }
     }
 }
