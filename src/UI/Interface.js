@@ -34,6 +34,7 @@ export class UIManager {
 
     initListeners() {
         this._onMouseMove = this.onMouseMove.bind(this);
+        this._onMouseDown = this.onMouseDown.bind(this);
         this._onClick = this.onClick.bind(this);
         this._onCloseCardClick = () => {
             this.hideInfoCard();
@@ -48,6 +49,7 @@ export class UIManager {
         this._onQuizBtnClick = this.toggleQuizMode.bind(this);
 
         window.addEventListener('mousemove', this._onMouseMove);
+        window.addEventListener('mousedown', this._onMouseDown);
         window.addEventListener('click', this._onClick);
         this.closeCard.addEventListener('click', this._onCloseCardClick);
         this.resetBtn.addEventListener('click', this._onResetBtnClick);
@@ -55,6 +57,10 @@ export class UIManager {
     }
 
     // --- Interaction ---
+
+    onMouseDown(event) {
+        this.mouseDownPos = { x: event.clientX, y: event.clientY };
+    }
 
     onMouseMove(event) {
         if (state.animating) return;
@@ -111,6 +117,14 @@ export class UIManager {
 
     onClick(event) {
         if (state.animating) return;
+
+        // Check for drag
+        if (this.mouseDownPos) {
+            const dx = event.clientX - this.mouseDownPos.x;
+            const dy = event.clientY - this.mouseDownPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance > 5) return; // It was a drag, ignore click
+        }
 
         // Check if click was on UI elements (ignore)
         if (event.target.closest('.btn') || event.target.closest('.info-card') || event.target.closest('.close-btn')) return;
@@ -288,7 +302,6 @@ export class UIManager {
     endQuiz() {
         this.quizHud.classList.remove('visible');
         // Removed alert for a cleaner experience, maybe show a modal later or just reset
-        console.log(`Exploration Complete! Final Score: ${state.score}`);
     }
 
     nextQuestion() {
@@ -367,6 +380,7 @@ export class UIManager {
 
     dispose() {
         window.removeEventListener('mousemove', this._onMouseMove);
+        window.removeEventListener('mousedown', this._onMouseDown);
         window.removeEventListener('click', this._onClick);
         if (this.closeCard) this.closeCard.removeEventListener('click', this._onCloseCardClick);
         if (this.resetBtn) this.resetBtn.removeEventListener('click', this._onResetBtnClick);
