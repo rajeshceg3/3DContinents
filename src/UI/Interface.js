@@ -302,6 +302,7 @@ export class UIManager {
     endQuiz() {
         this.quizHud.classList.remove('visible');
         // Removed alert for a cleaner experience, maybe show a modal later or just reset
+        console.log(`Exploration Complete! Final Score: ${state.score}`);
     }
 
     nextQuestion() {

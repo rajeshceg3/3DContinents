@@ -12,7 +12,9 @@ export default [
                 performance: "readonly",
                 requestAnimationFrame: "readonly",
                 alert: "readonly",
-                setTimeout: "readonly"
+                setTimeout: "readonly",
+                console: "readonly",
+                Event: "readonly"
             }
         },
         rules: {
