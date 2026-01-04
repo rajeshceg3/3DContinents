@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; script-src 'self' 'unsafe-inline';">
     <title>Aether | The Pastel World</title>
 
     <!-- Fonts -->
@@ -319,7 +320,7 @@
 <body>
 
     <!-- Loader -->
-    <div id="loader">
+    <div id="loader" aria-live="polite">
         <div class="loader-content">
             <div class="loader-spinner"></div>
             <div class="loader-text">Designing the World...</div>
@@ -333,34 +334,27 @@
             <div class="subtitle">A Journey Through Earth's Continents</div>
         </header>
 
-        <div id="quizHud" class="quiz-hud">
+        <div id="quizHud" class="quiz-hud" aria-live="polite">
             <div class="quiz-question" id="quizQuestion">Where is Africa?</div>
             <div class="quiz-score" id="quizScore">Score: 0</div>
         </div>
 
         <div class="controls">
-            <button id="resetBtn" class="btn">Return to Orbit</button>
-            <button id="quizBtn" class="btn">Exploration Mode</button>
+            <button id="resetBtn" class="btn" aria-label="Return to global view">Return to Orbit</button>
+            <button id="quizBtn" class="btn" aria-label="Toggle exploration mode">Exploration Mode</button>
         </div>
     </div>
 
     <!-- Info Card -->
-    <div class="info-card-container">
+    <div class="info-card-container" aria-live="polite">
         <div id="infoCard" class="info-card">
-            <button class="close-btn" id="closeCard">&times;</button>
+            <button class="close-btn" id="closeCard" aria-label="Close information card">&times;</button>
             <h2 id="cardTitle">Continent</h2>
             <p id="cardText">Description text goes here...</p>
         </div>
     </div>
 
     <canvas id="webgl"></canvas>
-
-    <!-- Scripts -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-    <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/" } }
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <!-- Main Entry Point -->
     <script type="module" src="./src/main.js"></script>
