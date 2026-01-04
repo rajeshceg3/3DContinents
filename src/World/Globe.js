@@ -92,7 +92,8 @@ export class Globe {
             }, this.svgLoader);
 
             // Scaling
-            continentMeshGroup.scale.set(scale, scale, scale);
+            // Invert Y scale to correct for SVG coordinate system (Y down) vs Three.js (Y up)
+            continentMeshGroup.scale.set(scale, -scale, scale);
 
             // Positioning
             const surfaceRadius = CONFIG.radius + 0.02; // Close to surface
