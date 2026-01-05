@@ -68,6 +68,7 @@ export class UIManager {
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
+        // Interactive Raycasting
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersects = this.raycaster.intersectObjects(this.sceneManager.getInteractiveObjects(), true);
 
@@ -93,24 +94,25 @@ export class UIManager {
     }
 
     animateHover(obj, isHovering) {
-        const scaleVal = obj.userData.originalScale * (isHovering ? 1.1 : 1.0);
-        // Make it pop more with color
-        const targetEmissiveIntensity = isHovering ? 0.5 : 0;
-        const duration = 0.5;
+        // "Breathing" hover effect
+        const scaleVal = obj.userData.originalScale * (isHovering ? 1.08 : 1.0);
 
         gsap.to(obj.scale, {
             x: scaleVal,
-            y: scaleVal,
+            y: scaleVal, // Remember Y is inverted for continents
             z: scaleVal,
-            duration: duration,
-            ease: "elastic.out(1, 0.5)"
+            duration: 0.8,
+            ease: "elastic.out(1, 0.6)"
         });
 
+        // Color shift
+        const targetEmissive = isHovering ? 0.3 : 0.1;
+
         obj.children.forEach(mesh => {
-             // Animate material properties
              gsap.to(mesh.material, {
-                emissiveIntensity: targetEmissiveIntensity,
-                duration: duration
+                emissiveIntensity: targetEmissive,
+                transmission: isHovering ? 0.2 : 0.15, // Clearer when hovered
+                duration: 0.5
              });
         });
     }
@@ -118,15 +120,13 @@ export class UIManager {
     onClick(event) {
         if (state.animating) return;
 
-        // Check for drag
         if (this.mouseDownPos) {
             const dx = event.clientX - this.mouseDownPos.x;
             const dy = event.clientY - this.mouseDownPos.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance > 5) return; // It was a drag, ignore click
+            if (distance > 5) return;
         }
 
-        // Check if click was on UI elements (ignore)
         if (event.target.closest('.btn') || event.target.closest('.info-card') || event.target.closest('.close-btn')) return;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -154,16 +154,15 @@ export class UIManager {
 
         this.createParticleBurst(obj.position, obj.userData.baseColor);
 
-        // Target position: maintain same direction vector but at distance
-        const targetPos = new THREE.Vector3().copy(obj.position).normalize().multiplyScalar(CONFIG.radius + 6);
+        // Cinematic Camera Move
+        const targetPos = new THREE.Vector3().copy(obj.position).normalize().multiplyScalar(CONFIG.radius + 5.5);
 
-        // Smooth camera transition
         gsap.to(this.camera.position, {
             x: targetPos.x,
             y: targetPos.y,
             z: targetPos.z,
-            duration: 1.8,
-            ease: "power2.inOut",
+            duration: 2.2, // Slower, more majestic
+            ease: "power3.inOut",
             onUpdate: () => this.camera.lookAt(0,0,0)
         });
 
@@ -178,8 +177,8 @@ export class UIManager {
             x: 0,
             y: 0,
             z: CONFIG.camZ,
-            duration: 2,
-            ease: "power3.inOut",
+            duration: 2.5,
+            ease: "power4.inOut",
             onComplete: () => {
                 state.animating = false;
                 state.zoomed = false;
@@ -189,39 +188,39 @@ export class UIManager {
         });
     }
 
+    // Organic Confetti Burst
     createParticleBurst(position, color) {
-        const particleCount = 60;
+        const particleCount = 80;
         const geometry = new THREE.BufferGeometry();
         const positions = [];
-        const sizes = [];
+        const randoms = [];
 
         for(let i = 0; i < particleCount; i++) {
             positions.push(position.x, position.y, position.z);
-            sizes.push(Math.random() * 0.5);
+            randoms.push(Math.random(), Math.random(), Math.random());
         }
 
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+        geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 3));
 
-        // Create a soft circle texture for particles
+        // Create a petal-like texture
         const canvas = document.createElement('canvas');
         canvas.width = 32; canvas.height = 32;
-        const context = canvas.getContext('2d');
-        const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-        context.fillStyle = gradient;
-        context.fillRect(0,0,32,32);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.ellipse(16, 16, 8, 14, 0, 0, 2 * Math.PI); // Oval/Petal shape
+        ctx.fill();
         const texture = new THREE.CanvasTexture(canvas);
 
         const material = new THREE.PointsMaterial({
             color: color,
-            size: 0.5,
+            size: 0.35,
             map: texture,
             transparent: true,
-            opacity: 0.8,
+            opacity: 1.0,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.NormalBlending
         });
 
         const particles = new THREE.Points(geometry, material);
@@ -230,28 +229,34 @@ export class UIManager {
         const speeds = [];
         for(let i=0; i<particleCount; i++) {
             speeds.push({
-                x: (Math.random() - 0.5) * 0.3,
-                y: (Math.random() - 0.5) * 0.3,
-                z: (Math.random() - 0.5) * 0.3 + 0.5 // Bias outwards
+                x: (Math.random() - 0.5) * 0.4,
+                y: (Math.random() - 0.5) * 0.4,
+                z: (Math.random() - 0.5) * 0.4 + 0.6 // Outward bias
             });
         }
 
-        const positionsAttribute = geometry.attributes.position;
+        const positionsAttr = geometry.attributes.position;
         const obj = { t: 0 };
 
         gsap.to(obj, {
             t: 1,
-            duration: 2,
+            duration: 2.5,
             ease: "power2.out",
             onUpdate: () => {
                 for(let i=0; i<particleCount; i++) {
                     const ix = i * 3;
-                    positionsAttribute.array[ix] += speeds[i].x;
-                    positionsAttribute.array[ix+1] += speeds[i].y;
-                    positionsAttribute.array[ix+2] += speeds[i].z;
+                    // Move
+                    positionsAttr.array[ix] += speeds[i].x;
+                    positionsAttr.array[ix+1] += speeds[i].y;
+                    positionsAttr.array[ix+2] += speeds[i].z;
+
+                    // Slow down (air resistance)
+                    speeds[i].x *= 0.96;
+                    speeds[i].y *= 0.96;
+                    speeds[i].z *= 0.96;
                 }
-                positionsAttribute.needsUpdate = true;
-                material.opacity = 0.8 * (1 - obj.t);
+                positionsAttr.needsUpdate = true;
+                material.opacity = 1 - Math.pow(obj.t, 3); // Fade out late
             },
             onComplete: () => {
                 this.scene.remove(particles);
@@ -266,7 +271,11 @@ export class UIManager {
         this.cardTitle.innerText = data.name;
         this.cardText.innerText = data.trivia;
         this.infoCard.classList.add('visible');
-        setTimeout(() => { state.animating = false; }, 1500);
+
+        // Float effect for card (CSS animation handles initial reveal, this adds subtle motion)
+        // Note: Using CSS for the ongoing float is better for performance, but we can do a one-off "settle" here
+
+        setTimeout(() => { state.animating = false; }, 1800);
     }
 
     hideInfoCard() {
@@ -278,13 +287,13 @@ export class UIManager {
     toggleQuizMode() {
         state.quizMode = !state.quizMode;
         if (state.quizMode) {
-            this.quizBtn.innerText = "Exit Exploration";
+            this.quizBtn.innerText = "Exit Expedition";
             this.quizBtn.style.background = "#fff";
             this.quizBtn.style.color = "var(--text-primary)";
             this.resetView();
             this.startQuiz();
         } else {
-            this.quizBtn.innerText = "Exploration Mode";
+            this.quizBtn.innerText = "Begin Expedition";
             this.quizBtn.style.background = "";
             this.quizBtn.style.color = "";
             this.endQuiz();
@@ -301,8 +310,6 @@ export class UIManager {
 
     endQuiz() {
         this.quizHud.classList.remove('visible');
-        // Removed alert for a cleaner experience, maybe show a modal later or just reset
-        console.log(`Exploration Complete! Final Score: ${state.score}`);
     }
 
     nextQuestion() {
@@ -316,48 +323,46 @@ export class UIManager {
         this.quizQueue.splice(idx, 1);
 
         this.quizQuestion.innerText = `Find ${state.currentQuestion.name}`;
-        gsap.fromTo(this.quizQuestion, {y: 20, opacity: 0}, {y: 0, opacity: 1, duration: 0.5});
+        gsap.fromTo(this.quizQuestion, {y: 30, opacity: 0}, {y: 0, opacity: 1, duration: 0.8, ease: "back.out(1.7)"});
 
-        state.processingAnswer = false; // Allow interaction
+        state.processingAnswer = false;
     }
 
     handleQuizAnswer(obj) {
         if (state.processingAnswer) return;
 
         if (obj.userData.name === state.currentQuestion.name) {
-            // Correct
-            state.processingAnswer = true; // Lock
+            state.processingAnswer = true;
             state.score += 100;
             this.quizScoreEl.innerText = `Score: ${state.score}`;
 
-            // Success animation
-            this.createParticleBurst(obj.position, 0x00FF00); // Green burst
+            this.createParticleBurst(obj.position, 0xB5EAD7); // Success color (Mint)
 
-            // Flash Green
+            // Pulse Green
             obj.children.forEach(m => {
-                gsap.to(m.material.emissive, {r:0, g:1, b:0, duration: 0.2, yoyo: true, repeat: 1});
+                gsap.to(m.material.emissive, {r:0.7, g:0.9, b:0.8, duration: 0.3, yoyo: true, repeat: 1});
             });
 
             setTimeout(() => {
                  this.nextQuestion();
-            }, 800);
+            }, 1000);
 
         } else {
-            // Wrong
             this.triggerShakeEffect();
-            // Flash Red
+            // Pulse Red
             obj.children.forEach(m => {
-                gsap.to(m.material.emissive, {r:1, g:0, b:0, duration: 0.2, yoyo: true, repeat: 1});
+                gsap.to(m.material.emissive, {r:1, g:0.8, b:0.8, duration: 0.3, yoyo: true, repeat: 1});
             });
         }
     }
 
     triggerShakeEffect() {
         gsap.to(this.webglCanvas, {
-            x: 10,
+            x: 8,
             duration: 0.05,
             yoyo: true,
             repeat: 5,
+            ease: "sine.inOut",
             onComplete: () => {
                 gsap.set(this.webglCanvas, { x: 0 });
             }
@@ -366,17 +371,16 @@ export class UIManager {
 
     // --- Lifecycle ---
     startIntro() {
-        // Wait for fonts to load ideally, but timeout works for now
         setTimeout(() => {
             this.loader.style.opacity = '0';
-            setTimeout(() => this.loader.style.display = 'none', 1000);
+            setTimeout(() => this.loader.style.display = 'none', 1500);
 
-            // Intro Camera move
+            // Intro Camera - Slow reveal
             gsap.fromTo(this.camera.position,
-                { z: 40, y: 10 },
-                { z: CONFIG.camZ, y: 0, duration: 3.5, ease: "power3.inOut" }
+                { z: 45, y: 15 },
+                { z: CONFIG.camZ, y: 0, duration: 4.5, ease: "power2.inOut" }
             );
-        }, 1500); // Slightly longer load to admire the loader
+        }, 1800);
     }
 
     dispose() {
