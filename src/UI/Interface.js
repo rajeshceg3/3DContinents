@@ -13,6 +13,8 @@ export class UIManager {
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
+        this.lastRaycastTime = 0;
+        this.particleTexture = this.createParticleTexture();
 
         this.initDOM();
         this.initListeners();
@@ -37,11 +39,12 @@ export class UIManager {
         this._onMouseDown = this.onMouseDown.bind(this);
         this._onClick = this.onClick.bind(this);
         this._onCloseCardClick = () => {
+            if (state.animating) return;
             this.hideInfoCard();
             this.resetView();
         };
         this._onResetBtnClick = () => {
-            if (state.zoomed) {
+            if (state.zoomed && !state.animating) {
                 this.hideInfoCard();
                 this.resetView();
             }
@@ -67,6 +70,10 @@ export class UIManager {
 
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        const now = Date.now();
+        if (now - this.lastRaycastTime < 40) return; // Throttle raycasting (~25fps)
+        this.lastRaycastTime = now;
 
         // Interactive Raycasting
         this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -163,7 +170,10 @@ export class UIManager {
             z: targetPos.z,
             duration: 2.2, // Slower, more majestic
             ease: "power3.inOut",
-            onUpdate: () => this.camera.lookAt(0,0,0)
+            onUpdate: () => this.camera.lookAt(0,0,0),
+            onComplete: () => {
+                state.animating = false;
+            }
         });
 
         this.showInfoCard(obj.userData);
@@ -203,20 +213,10 @@ export class UIManager {
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geometry.setAttribute('random', new THREE.Float32BufferAttribute(randoms, 3));
 
-        // Create a petal-like texture
-        const canvas = document.createElement('canvas');
-        canvas.width = 32; canvas.height = 32;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#FFF';
-        ctx.beginPath();
-        ctx.ellipse(16, 16, 8, 14, 0, 0, 2 * Math.PI); // Oval/Petal shape
-        ctx.fill();
-        const texture = new THREE.CanvasTexture(canvas);
-
         const material = new THREE.PointsMaterial({
             color: color,
             size: 0.35,
-            map: texture,
+            map: this.particleTexture,
             transparent: true,
             opacity: 1.0,
             depthWrite: false,
@@ -262,20 +262,25 @@ export class UIManager {
                 this.scene.remove(particles);
                 geometry.dispose();
                 material.dispose();
-                texture.dispose();
             }
         });
+    }
+
+    createParticleTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32; canvas.height = 32;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.ellipse(16, 16, 8, 14, 0, 0, 2 * Math.PI); // Oval/Petal shape
+        ctx.fill();
+        return new THREE.CanvasTexture(canvas);
     }
 
     showInfoCard(data) {
         this.cardTitle.innerText = data.name;
         this.cardText.innerText = data.trivia;
         this.infoCard.classList.add('visible');
-
-        // Float effect for card (CSS animation handles initial reveal, this adds subtle motion)
-        // Note: Using CSS for the ongoing float is better for performance, but we can do a one-off "settle" here
-
-        setTimeout(() => { state.animating = false; }, 1800);
     }
 
     hideInfoCard() {
@@ -314,7 +319,6 @@ export class UIManager {
 
     nextQuestion() {
         if (this.quizQueue.length === 0) {
-            this.endQuiz();
             this.toggleQuizMode();
             return;
         }
@@ -390,5 +394,6 @@ export class UIManager {
         if (this.closeCard) this.closeCard.removeEventListener('click', this._onCloseCardClick);
         if (this.resetBtn) this.resetBtn.removeEventListener('click', this._onResetBtnClick);
         if (this.quizBtn) this.quizBtn.removeEventListener('click', this._onQuizBtnClick);
+        if (this.particleTexture) this.particleTexture.dispose();
     }
 }

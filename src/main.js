@@ -22,7 +22,12 @@ window.onload = () => {
         // Start Loop
         function animate() {
             requestAnimationFrame(animate);
-            sceneManager.render();
+            try {
+                sceneManager.render();
+            } catch (err) {
+                console.error("Runtime Error:", err);
+                // Optionally stop animation or show error UI if critical
+            }
         }
         animate();
 

@@ -108,6 +108,22 @@ export class SceneManager {
         if (this.controls) this.controls.dispose();
         if (this.globe) this.globe.dispose();
         if (this.starfield) this.starfield.dispose();
+
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else if (Array.isArray(object.material)) {
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+            this.scene.clear();
+            this.scene = null;
+        }
+
         if (this.renderer) this.renderer.dispose();
     }
 }
