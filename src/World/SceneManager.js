@@ -106,6 +106,7 @@ export class SceneManager {
     dispose() {
         window.removeEventListener('resize', this._onResize);
         if (this.controls) this.controls.dispose();
+        // Dispose children first
         if (this.globe) this.globe.dispose();
         if (this.starfield) this.starfield.dispose();
 
@@ -120,10 +121,15 @@ export class SceneManager {
                     }
                 }
             });
+            // Clear scene after traversing to ensure we can reach all children
             this.scene.clear();
             this.scene = null;
         }
 
-        if (this.renderer) this.renderer.dispose();
+        if (this.renderer) {
+            this.renderer.dispose();
+            this.renderer.forceContextLoss();
+            this.renderer = null;
+        }
     }
 }

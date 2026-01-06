@@ -14,6 +14,8 @@ export class UIManager {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.lastRaycastTime = 0;
+        this.raycastTimeout = null;
+        this.activeTweens = [];
         this.particleTexture = this.createParticleTexture();
 
         this.initDOM();
@@ -72,16 +74,30 @@ export class UIManager {
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         const now = Date.now();
-        if (now - this.lastRaycastTime < 40) return; // Throttle raycasting (~25fps)
-        this.lastRaycastTime = now;
+        const timeSinceLast = now - this.lastRaycastTime;
+        const throttleDelay = 40;
 
-        // Interactive Raycasting
+        if (timeSinceLast < throttleDelay) {
+            if (this.raycastTimeout) clearTimeout(this.raycastTimeout);
+            this.raycastTimeout = setTimeout(() => {
+                this.lastRaycastTime = Date.now();
+                this.performRaycast();
+            }, throttleDelay - timeSinceLast);
+            return;
+        }
+
+        if (this.raycastTimeout) clearTimeout(this.raycastTimeout);
+        this.lastRaycastTime = now;
+        this.performRaycast();
+    }
+
+    performRaycast() {
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersects = this.raycaster.intersectObjects(this.sceneManager.getInteractiveObjects(), true);
 
         if (intersects.length > 0) {
             let obj = intersects[0].object;
-            while(obj.parent && !obj.userData.isContinent) {
+            while (obj.parent && !obj.userData.isContinent) {
                 obj = obj.parent;
             }
 
@@ -238,7 +254,7 @@ export class UIManager {
         const positionsAttr = geometry.attributes.position;
         const obj = { t: 0 };
 
-        gsap.to(obj, {
+        const tween = gsap.to(obj, {
             t: 1,
             duration: 2.5,
             ease: "power2.out",
@@ -262,8 +278,10 @@ export class UIManager {
                 this.scene.remove(particles);
                 geometry.dispose();
                 material.dispose();
+                this.activeTweens = this.activeTweens.filter(t => t !== tween);
             }
         });
+        this.activeTweens.push(tween);
     }
 
     createParticleTexture() {
@@ -388,6 +406,10 @@ export class UIManager {
     }
 
     dispose() {
+        if (this.raycastTimeout) clearTimeout(this.raycastTimeout);
+        this.activeTweens.forEach(t => t.kill());
+        this.activeTweens = [];
+
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mousedown', this._onMouseDown);
         window.removeEventListener('click', this._onClick);

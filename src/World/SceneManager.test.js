@@ -24,6 +24,7 @@ vi.mock('three', async () => {
                 this.setPixelRatio = vi.fn();
                 this.render = vi.fn();
                 this.dispose = vi.fn();
+                this.forceContextLoss = vi.fn();
                 this.domElement = document.createElement('canvas');
                 this.toneMapping = 0;
                 this.shadowMap = { enabled: false };
