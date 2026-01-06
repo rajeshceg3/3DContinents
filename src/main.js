@@ -1,8 +1,12 @@
 import { SceneManager } from './World/SceneManager.js';
 import { UIManager } from './UI/Interface.js';
+import { resetState } from './State.js';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 
 window.onload = () => {
+    // Reset global state
+    resetState();
+
     // 1. WebGL Capability Check
     if (!WebGL.isWebGLAvailable()) {
         const warning = WebGL.getWebGLErrorMessage();
@@ -20,12 +24,14 @@ window.onload = () => {
         const uiManager = new UIManager(sceneManager);
 
         // Start Loop
+        let animationId;
         function animate() {
-            requestAnimationFrame(animate);
+            animationId = requestAnimationFrame(animate);
             try {
                 sceneManager.render();
             } catch (err) {
                 console.error("Runtime Error:", err);
+                cancelAnimationFrame(animationId);
                 // Optionally stop animation or show error UI if critical
             }
         }
