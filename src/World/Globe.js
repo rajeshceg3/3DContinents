@@ -1,159 +1,144 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-import { CONFIG } from '../Config.js';
+import config from '../Config.js';
 import { continentsData } from '../Data/continents.js';
-import { createContinentMesh } from '../Utils/Helpers.js';
-
-// Planet Atmosphere Shader - Enhanced for volumetric softness
-const atmosphereVertex = `
-    varying vec3 vNormal;
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-
-const atmosphereFragment = `
-    varying vec3 vNormal;
-    void main() {
-        // More sophisticated fresnel
-        float viewAngle = dot(vNormal, vec3(0, 0, 1.0));
-        float intensity = pow(0.55 - viewAngle, 4.0);
-
-        // Gradient color: Lavender to White
-        vec3 glowColor = mix(vec3(0.9, 0.9, 1.0), vec3(0.95, 0.8, 0.95), intensity);
-
-        gl_FragColor = vec4(glowColor, 1.0) * intensity * 1.8;
-    }
-`;
 
 export class Globe {
     constructor(scene) {
         this.scene = scene;
-        this.interactiveObjects = [];
-        this.svgLoader = new SVGLoader();
+        this.group = new THREE.Group();
+        this.scene.add(this.group);
 
-        this.init();
+        this.continents = [];
+
+        this.initSphere();
+        this.initAtmosphere();
+        this.loadContinents();
     }
 
-    init() {
-        // 1. Planet Core - "Porcelain & Pearl"
-        // Using MeshPhysicalMaterial for that premium subsurface look
-        const planetGeo = new THREE.SphereGeometry(CONFIG.radius, 128, 128);
-        const planetMat = new THREE.MeshPhysicalMaterial({
-            color: CONFIG.colors.core,
-            roughness: 0.25,
-            metalness: 0.05,
+    initSphere() {
+        const geometry = new THREE.SphereGeometry(config.globe.radius, config.globe.segments, config.globe.segments);
+        const material = new THREE.MeshPhysicalMaterial({
+            color: config.colors.globe,
+            emissive: config.colors.globeEmissive,
+            roughness: 0.2,
+            metalness: 0.1,
+            clearcoat: 0.5,
+            clearcoatRoughness: 0.1,
+            // Simulating water/glassy look
             transmission: 0,
-            reflectivity: 0.8,
-            sheen: 1.0,
-            sheenColor: CONFIG.colors.sheen,
-            clearcoat: 0.8,
-            clearcoatRoughness: 0.15,
+            opacity: 1,
+            transparent: false
         });
-        this.planet = new THREE.Mesh(planetGeo, planetMat);
-        this.scene.add(this.planet);
 
-        // 2. Atmosphere - Ethereal Glow
-        const atmoGeo = new THREE.SphereGeometry(CONFIG.radius + 1.5, 64, 64);
-        const atmoMat = new THREE.ShaderMaterial({
-            vertexShader: atmosphereVertex,
-            fragmentShader: atmosphereFragment,
+        this.sphere = new THREE.Mesh(geometry, material);
+        this.sphere.receiveShadow = true;
+        this.group.add(this.sphere);
+    }
+
+    initAtmosphere() {
+        // Create a slightly larger sphere for atmosphere glow
+        const geometry = new THREE.SphereGeometry(config.globe.radius + 1.5, 64, 64);
+
+        // Custom Shader Material for Atmosphere
+        const vertexShader = `
+            varying vec3 vNormal;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vNormal;
+            void main() {
+                float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+                gl_FragColor = vec4(0.3, 0.0, 0.5, 1.0) * intensity;
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            vertexShader,
+            fragmentShader,
             blending: THREE.AdditiveBlending,
             side: THREE.BackSide,
             transparent: true,
             depthWrite: false
         });
-        this.atmosphere = new THREE.Mesh(atmoGeo, atmoMat);
+
+        this.atmosphere = new THREE.Mesh(geometry, material);
         this.scene.add(this.atmosphere);
-
-        // 3. Continents
-        this.continentsGroup = new THREE.Group();
-        this.planet.add(this.continentsGroup);
-
-        this.generateContinents();
     }
 
-    generateContinents() {
-        continentsData.forEach(data => {
-            const { svgPath, name, color, lat, lon, scale, trivia } = data;
+    loadContinents() {
+        const loader = new SVGLoader();
 
-            // "Frosted Glass" Material
-            const material = new THREE.MeshPhysicalMaterial({
-                color: color,
-                emissive: color,
-                emissiveIntensity: 0.1, // Subtle inner glow
-                roughness: 0.2,
-                metalness: 0.1,
-                transmission: 0.15, // Glassy
-                thickness: 2.0,
-                clearcoat: 1.0,
-                side: THREE.DoubleSide
+        continentsData.forEach(data => {
+            const paths = loader.parse(data.svgPath).paths; // Use svgPath from data
+            const group = new THREE.Group();
+
+            paths.forEach(path => {
+                const shapes = SVGLoader.createShapes(path);
+
+                shapes.forEach(shape => {
+                    const geometry = new THREE.ExtrudeGeometry(shape, {
+                        depth: 0.2,
+                        bevelEnabled: true,
+                        bevelThickness: 0.05,
+                        bevelSize: 0.05,
+                        bevelSegments: 2
+                    });
+
+                    // Center geometry
+                    geometry.center();
+
+                    // Create separate material for each continent based on data color
+                    const material = new THREE.MeshStandardMaterial({
+                        color: data.color || config.colors.continent, // Use data color
+                        roughness: 0.8,
+                        metalness: 0.2,
+                        side: THREE.DoubleSide
+                    });
+
+                    const mesh = new THREE.Mesh(geometry, material);
+                    group.add(mesh);
+                });
             });
 
-            // Geometry generation
-            const continentMeshGroup = createContinentMesh(svgPath, material, {
-                depth: 1.2,
-                bevelEnabled: true,
-                bevelThickness: 0.2,
-                bevelSize: 0.2,
-                bevelSegments: 8, // High fidelity edges
-                curveSegments: 24 // Smoother curves
-            }, this.svgLoader);
+            // Convert Lat/Lon to Vector3
+            const pos = this.latLonToVector3(data.lat, data.lon, config.globe.radius);
 
-            // Scaling & Orientation
-            // Invert Y scale to correct for SVG coordinate system (Y down) vs Three.js (Y up)
-            continentMeshGroup.scale.set(scale, -scale, scale);
+            group.position.copy(pos);
+            group.lookAt(0, 0, 0);
 
-            const surfaceRadius = CONFIG.radius - 0.1; // Slightly embedded for integration
-            const phi = (90 - lat) * (Math.PI / 180);
-            const theta = (lon + 180) * (Math.PI / 180);
+            // Fix orientation (SVG is y-down, 3D is y-up) and apply scale
+            const s = data.scale || 0.05;
+            group.scale.set(s, -s, s);
 
-            continentMeshGroup.position.setFromSphericalCoords(surfaceRadius, phi, theta);
-
-            const target = new THREE.Vector3().copy(continentMeshGroup.position).multiplyScalar(2);
-            continentMeshGroup.lookAt(target);
-
-            // Metadata
-            continentMeshGroup.userData = {
-                name,
-                trivia,
-                isContinent: true,
-                baseColor: color,
-                originalScale: scale
+            // Add user data for interaction
+            group.userData = {
+                name: data.name,
+                info: data.trivia || data.info, // trivia from new data
+                type: 'continent'
             };
 
-            this.continentsGroup.add(continentMeshGroup);
-            this.interactiveObjects.push(continentMeshGroup);
+            this.continents.push(group);
+            this.group.add(group);
         });
     }
 
-    getInteractiveObjects() {
-        return this.interactiveObjects;
+    latLonToVector3(lat, lon, radius) {
+        const phi = (90 - lat) * (Math.PI / 180);
+        const theta = (lon + 180) * (Math.PI / 180);
+
+        const x = -(radius * Math.sin(phi) * Math.cos(theta));
+        const z = (radius * Math.sin(phi) * Math.sin(theta));
+        const y = (radius * Math.cos(phi));
+
+        return new THREE.Vector3(x, y, z);
     }
 
-    dispose() {
-        if (this.planet) {
-            this.scene.remove(this.planet);
-            if (this.planet.geometry) this.planet.geometry.dispose();
-            if (this.planet.material) this.planet.material.dispose();
-        }
-        if (this.atmosphere) {
-            this.scene.remove(this.atmosphere);
-            if (this.atmosphere.geometry) this.atmosphere.geometry.dispose();
-            if (this.atmosphere.material) this.atmosphere.material.dispose();
-        }
-        if (this.continentsGroup) {
-            if (this.planet) this.planet.remove(this.continentsGroup);
-            this.interactiveObjects.forEach(group => {
-                if (group.children) {
-                    group.children.forEach(mesh => {
-                        if (mesh.geometry) mesh.geometry.dispose();
-                        if (mesh.material) mesh.material.dispose();
-                    });
-                }
-            });
-            this.interactiveObjects = [];
-        }
+    animate() {
+        // Subtle rotation or pulse could go here
     }
 }

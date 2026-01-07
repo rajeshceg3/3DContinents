@@ -39,62 +39,70 @@ const starfieldFragment = `
     }
 `;
 
-export function createStarfield(scene) {
-    const starGeo = new THREE.SphereGeometry(100, 64, 64);
-    const starMat = new THREE.ShaderMaterial({
-        uniforms: {
-            uTime: { value: 0 }
-        },
-        vertexShader: starfieldVertex,
-        fragmentShader: starfieldFragment,
-        side: THREE.BackSide
-    });
-
-    const bgMesh = new THREE.Mesh(starGeo, starMat);
-    scene.add(bgMesh);
-
-    // Add Floating Particles ("Dust Motes") for depth
-    const particleCount = 200;
-    const particleGeo = new THREE.BufferGeometry();
-    const positions = [];
-
-    for(let i=0; i<particleCount; i++) {
-        positions.push(
-            (Math.random() - 0.5) * 60,
-            (Math.random() - 0.5) * 60,
-            (Math.random() - 0.5) * 60
-        );
+export class Starfield {
+    constructor(scene) {
+        this.scene = scene;
+        this.init();
     }
 
-    particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    init() {
+        const starGeo = new THREE.SphereGeometry(100, 64, 64);
+        this.starMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 }
+            },
+            vertexShader: starfieldVertex,
+            fragmentShader: starfieldFragment,
+            side: THREE.BackSide
+        });
 
-    const particleMat = new THREE.PointsMaterial({
-        color: 0xFFFFFF,
-        size: 0.15,
-        transparent: true,
-        opacity: 0.6,
-        sizeAttenuation: true
-    });
+        this.bgMesh = new THREE.Mesh(starGeo, this.starMat);
+        this.scene.add(this.bgMesh);
 
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
+        // Add Floating Particles ("Dust Motes") for depth
+        const particleCount = 200;
+        this.particleGeo = new THREE.BufferGeometry();
+        const positions = [];
 
-    // Return an object with an update method
-    return {
-        mesh: bgMesh,
-        particles: particles,
-        update: (time) => {
-            starMat.uniforms.uTime.value = time;
-            particles.rotation.y = time * 0.05;
-        },
-        dispose: () => {
-             scene.remove(bgMesh);
-             bgMesh.geometry.dispose();
-             bgMesh.material.dispose();
-
-             scene.remove(particles);
-             particleGeo.dispose();
-             particleMat.dispose();
+        for(let i=0; i<particleCount; i++) {
+            positions.push(
+                (Math.random() - 0.5) * 60,
+                (Math.random() - 0.5) * 60,
+                (Math.random() - 0.5) * 60
+            );
         }
-    };
+
+        this.particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+        this.particleMat = new THREE.PointsMaterial({
+            color: 0xFFFFFF,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.6,
+            sizeAttenuation: true
+        });
+
+        this.particles = new THREE.Points(this.particleGeo, this.particleMat);
+        this.scene.add(this.particles);
+    }
+
+    animate() {
+        const time = performance.now() * 0.001;
+        if (this.starMat) this.starMat.uniforms.uTime.value = time;
+        if (this.particles) this.particles.rotation.y = time * 0.05;
+    }
+
+    dispose() {
+         if (this.bgMesh) {
+             this.scene.remove(this.bgMesh);
+             this.bgMesh.geometry.dispose();
+             this.bgMesh.material.dispose();
+         }
+
+         if (this.particles) {
+             this.scene.remove(this.particles);
+             this.particleGeo.dispose();
+             this.particleMat.dispose();
+         }
+    }
 }

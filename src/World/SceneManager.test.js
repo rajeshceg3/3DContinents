@@ -22,17 +22,50 @@ vi.mock('three', async () => {
             constructor() {
                 this.setSize = vi.fn();
                 this.setPixelRatio = vi.fn();
+                this.getPixelRatio = vi.fn(() => 1);
+                this.getSize = vi.fn((target) => {
+                    if (target) {
+                        target.x = 100;
+                        target.y = 100;
+                    }
+                    return new THREE.Vector2(100, 100);
+                });
+                this.getRenderTarget = vi.fn(() => null);
+                this.setRenderTarget = vi.fn();
+                this.getClearColor = vi.fn(() => new THREE.Color(0x000000));
+                this.getClearAlpha = vi.fn(() => 1);
+                this.setClearColor = vi.fn();
                 this.render = vi.fn();
                 this.dispose = vi.fn();
                 this.forceContextLoss = vi.fn();
+                this.setScissor = vi.fn();
+                this.setScissorTest = vi.fn();
+                this.setViewport = vi.fn();
+                this.clear = vi.fn();
                 this.domElement = document.createElement('canvas');
                 this.toneMapping = 0;
                 this.shadowMap = { enabled: false };
-                this.capabilities = { isWebGL2: true };
+                this.capabilities = { isWebGL2: true, getMaxAnisotropy: () => 1 };
+                this.info = { reset: () => {} };
             }
         },
     };
 });
+
+// Mock Globe and Starfield
+vi.mock('./Globe.js', () => ({
+    Globe: class {
+        constructor() {}
+        animate() {}
+    }
+}));
+
+vi.mock('./Starfield.js', () => ({
+    Starfield: class {
+        constructor() {}
+        animate() {}
+    }
+}));
 
 describe('SceneManager', () => {
     let sceneManager;

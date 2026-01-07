@@ -1,135 +1,218 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { CONFIG } from '../Config.js';
-import { createStarfield } from './Starfield.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { Globe } from './Globe.js';
+import { Starfield } from './Starfield.js';
+import config from '../Config.js';
+import { state } from '../State.js';
+import gsap from 'gsap';
 
 export class SceneManager {
     constructor(canvas) {
         this.canvas = canvas;
-        this.clock = new THREE.Clock();
-        this.init();
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(config.colors.background);
+        this.scene.fog = new THREE.FogExp2(config.colors.background, 0.02);
+
+        this.initRenderer();
+        this.initCamera();
+        this.initLights();
+        this.initPostProcessing(); // Add post-processing
+
+        this.globe = new Globe(this.scene);
+        this.starfield = new Starfield(this.scene);
+
+        this.controls = new OrbitControls(this.camera, this.canvas);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.enableZoom = false; // Controlled programmatically
+        this.controls.enablePan = false;
+        this.controls.autoRotate = true;
+        this.controls.autoRotateSpeed = 0.5;
+
+        this._onWindowResize = this.onWindowResize.bind(this);
+        window.addEventListener('resize', this._onWindowResize);
     }
 
-    init() {
-        // Scene
-        this.scene = new THREE.Scene();
-        // Fog matches the background gradient mid-tone for seamless blend
-        this.scene.fog = new THREE.FogExp2(0xFDFBF7, 0.015);
-
-        // Camera
-        this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.z = CONFIG.camZ + 15; // Start further out
-
-        // Renderer
+    initRenderer() {
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             antialias: true,
-            alpha: true,
             powerPreference: "high-performance"
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.1;
+        this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-        // Controls
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.04; // Silkier finish
-        this.controls.enablePan = false;
-        this.controls.enableZoom = false; // Zoom handled by UI events
-        this.controls.minDistance = 6;
-        this.controls.maxDistance = 30;
-        this.controls.autoRotate = true;
-        this.controls.autoRotateSpeed = 0.6; // Gentler rotation
-
-        // Lighting (Cinematic Setup)
-
-        // 1. Soft Ambient (Base illumination)
-        const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.6);
-        this.scene.add(ambientLight);
-
-        // 2. Key Light (Sun) - Warm
-        const keyLight = new THREE.DirectionalLight(0xFFF0DD, 1.5);
-        keyLight.position.set(8, 12, 10);
-        keyLight.castShadow = true;
-        keyLight.shadow.mapSize.width = 1024;
-        keyLight.shadow.mapSize.height = 1024;
-        this.scene.add(keyLight);
-
-        // 3. Fill Light (Sky) - Cool Lavender
-        const fillLight = new THREE.DirectionalLight(0xE6E6FA, 0.9);
-        fillLight.position.set(-8, 4, 8);
-        this.scene.add(fillLight);
-
-        // 4. Rim Light (Edge definition) - Bright White
-        const rimLight = new THREE.SpotLight(0xFFFFFF, 2.0);
-        rimLight.position.set(0, 10, -15);
-        rimLight.lookAt(0, 0, 0);
-        this.scene.add(rimLight);
-
-        // World Objects
-        this.starfield = createStarfield(this.scene);
-        this.globe = new Globe(this.scene);
-
-        // Listeners
-        this._onResize = this.onResize.bind(this);
-        window.addEventListener('resize', this._onResize);
     }
 
-    onResize() {
+    initCamera() {
+        this.camera = new THREE.PerspectiveCamera(
+            config.scene.cameraFOV,
+            window.innerWidth / window.innerHeight,
+            config.scene.cameraNear,
+            config.scene.cameraFar
+        );
+        this.camera.position.set(
+            config.scene.cameraPos.x,
+            config.scene.cameraPos.y,
+            config.scene.cameraPos.z
+        );
+        this.camera.lookAt(0, 0, 0);
+    }
+
+    initLights() {
+        // Ambient Light
+        const ambientLight = new THREE.AmbientLight(0xffffff, config.scene.ambientIntensity);
+        this.scene.add(ambientLight);
+
+        // Main Sun Light (Key Light)
+        this.sunLight = new THREE.DirectionalLight(config.colors.sun, config.scene.sunIntensity);
+        this.sunLight.position.set(
+            config.scene.sunPosition.x,
+            config.scene.sunPosition.y,
+            config.scene.sunPosition.z
+        );
+        this.sunLight.castShadow = true;
+        this.sunLight.shadow.mapSize.width = 2048;
+        this.sunLight.shadow.mapSize.height = 2048;
+        this.scene.add(this.sunLight);
+
+        // Fill Light (Cooler, softer)
+        const fillLight = new THREE.DirectionalLight(0xccccff, 0.5);
+        fillLight.position.set(-20, 0, 20);
+        this.scene.add(fillLight);
+
+        // Rim Light (Backlight for atmosphere)
+        const rimLight = new THREE.SpotLight(config.colors.rim, 2);
+        rimLight.position.set(0, 10, -20);
+        rimLight.lookAt(0, 0, 0);
+        this.scene.add(rimLight);
+    }
+
+    initPostProcessing() {
+        this.composer = new EffectComposer(this.renderer);
+
+        const renderPass = new RenderPass(this.scene, this.camera);
+        this.composer.addPass(renderPass);
+
+        // Unreal Bloom
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            1.5, // strength
+            0.4, // radius
+            0.85 // threshold
+        );
+        this.composer.addPass(bloomPass);
+    }
+
+    onWindowResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.composer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Camera Animation
+    focusOn(targetPosition) {
+        state.zoomed = true;
+        state.animating = true;
+        this.controls.autoRotate = false;
+
+        // Calculate new camera position
+        // Vector from center to target
+        const direction = targetPosition.clone().normalize();
+        const distance = 10; // Zoom distance
+        const newPos = direction.multiplyScalar(distance);
+
+        gsap.to(this.camera.position, {
+            x: newPos.x,
+            y: newPos.y,
+            z: newPos.z,
+            duration: config.timing.zoomDuration,
+            ease: "power2.inOut",
+            onUpdate: () => {
+                this.controls.update();
+            },
+            onComplete: () => {
+                state.animating = false;
+            }
+        });
+    }
+
+    resetView() {
+        if (state.animating) return;
+        state.zoomed = false;
+        state.animating = true;
+
+        gsap.to(this.camera.position, {
+            x: config.scene.cameraPos.x,
+            y: config.scene.cameraPos.y,
+            z: config.scene.cameraPos.z,
+            duration: config.timing.zoomDuration,
+            ease: "power2.inOut",
+            onUpdate: () => {
+                this.controls.update();
+            },
+            onComplete: () => {
+                this.controls.autoRotate = true;
+                state.animating = false;
+            }
+        });
     }
 
     render() {
-        const time = this.clock.getElapsedTime();
+        // Animate globe and starfield
+        if (this.globe) this.globe.animate();
+        if (this.starfield) this.starfield.animate();
 
-        this.controls.update();
+        if (this.controls) this.controls.update();
 
-        // Update Starfield (background & particles)
-        if (this.starfield && this.starfield.update) {
-            this.starfield.update(time);
-        }
-
-        this.renderer.render(this.scene, this.camera);
+        // Use composer for post-processing
+        if (this.composer) this.composer.render();
     }
 
-    getInteractiveObjects() {
-        return this.globe.getInteractiveObjects();
-    }
-
+    // Cleanup to prevent memory leaks
     dispose() {
-        window.removeEventListener('resize', this._onResize);
-        if (this.controls) this.controls.dispose();
-        // Dispose children first
-        if (this.globe) this.globe.dispose();
-        if (this.starfield) this.starfield.dispose();
+        window.removeEventListener('resize', this._onWindowResize);
 
+        if (this.controls) this.controls.dispose();
+
+        // Recursively dispose all objects in the scene
         if (this.scene) {
             this.scene.traverse((object) => {
-                if (object.geometry) object.geometry.dispose();
-                if (object.material) {
-                    if (object.material.isMaterial) {
-                        object.material.dispose();
-                    } else if (Array.isArray(object.material)) {
+                 if (object.geometry) object.geometry.dispose();
+                 if (object.material) {
+                    if (Array.isArray(object.material)) {
                         object.material.forEach(material => material.dispose());
+                    } else {
+                        object.material.dispose();
                     }
-                }
+                 }
             });
-            // Clear scene after traversing to ensure we can reach all children
             this.scene.clear();
-            this.scene = null;
         }
+
+        // Kill any active GSAP tweens
+        if (this.camera) gsap.killTweensOf(this.camera.position);
 
         if (this.renderer) {
             this.renderer.dispose();
             this.renderer.forceContextLoss();
-            this.renderer = null;
         }
+
+        if (this.composer) this.composer.dispose();
+
+        this.renderer = null;
+        this.scene = null;
+        this.camera = null;
+        this.controls = null;
+        this.composer = null;
+        this.globe = null;
+        this.starfield = null;
     }
 }
