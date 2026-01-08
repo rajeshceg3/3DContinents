@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import config from '../Config.js';
 import { state } from '../State.js';
 import gsap from 'gsap';
+import { throttle } from '../Utils/Helpers.js';
 
 export class UIManager {
     constructor(sceneManager) {
@@ -16,8 +17,6 @@ export class UIManager {
         // DOM Elements - IDs aligned with index.html
         this.elements = {
             loader: document.getElementById('loader'),
-            // Intro overlay removed as it doesn't exist in HTML
-            // startBtn removed
             card: document.getElementById('infoCard'),
             cardTitle: document.getElementById('cardTitle'),
             cardContent: document.getElementById('cardText'),
@@ -25,7 +24,6 @@ export class UIManager {
             resetBtn: document.getElementById('resetBtn'),
             quizUI: document.getElementById('quizHud'),
             quizQuestion: document.getElementById('quizQuestion'),
-            // quizOptions: document.getElementById('quiz-options'), // Missing in HTML
             quizScore: document.getElementById('quizScore'),
             startQuizBtn: document.getElementById('quizBtn')
         };
@@ -37,6 +35,9 @@ export class UIManager {
         this._onClick = this.onClick.bind(this);
         this._onKeyDown = this.onKeyDown.bind(this);
         this._onResize = this.onResize.bind(this);
+
+        // Throttled raycasting for hover
+        this.throttledRaycast = throttle(this.performRaycast.bind(this), 50);
 
         this.initListeners();
     }
@@ -113,11 +114,15 @@ export class UIManager {
 
         if (state.animating || state.zoomed) return;
 
+        // Perform raycasting (throttled)
+        this.throttledRaycast();
+    }
+
+    performRaycast() {
         // Raycasting for hover effects
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
 
         // Optimize: use recursive intersection on the continent groups directly
-        // This avoids creating a new array of meshes every frame
         const intersects = this.raycaster.intersectObjects(this.sceneManager.globe.continents, true);
 
         if (intersects.length > 0) {
@@ -150,6 +155,9 @@ export class UIManager {
 
         // Animate color
         group.children.forEach(mesh => {
+             // Ensure we kill any existing color tween to prevent conflict/leaks
+             gsap.killTweensOf(mesh.material.color);
+
              gsap.to(mesh.material.color, {
                  r: new THREE.Color(color).r,
                  g: new THREE.Color(color).g,
@@ -163,7 +171,8 @@ export class UIManager {
         if (state.animating) return;
         if (this.isDrag) return; // Ignore if it was a drag operation
 
-        // Re-calculate mouse in case of fast click
+        // Re-calculate mouse in case of fast click (though mouse down/up logic handles drag)
+        // But we want exact click pos
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -193,6 +202,7 @@ export class UIManager {
 
         if (this.elements.card) {
             this.elements.card.style.display = 'block';
+            gsap.killTweensOf(this.elements.card);
             gsap.to(this.elements.card, {
                 opacity: 1,
                 y: 0,
@@ -204,6 +214,7 @@ export class UIManager {
 
     hideCard() {
         if (this.elements.card) {
+            gsap.killTweensOf(this.elements.card);
             gsap.to(this.elements.card, {
                 opacity: 0,
                 y: 20,
@@ -218,6 +229,7 @@ export class UIManager {
     startIntro() {
         // Hide loader
         if (this.elements.loader) {
+            gsap.killTweensOf(this.elements.loader);
             gsap.to(this.elements.loader, {
                 opacity: 0,
                 duration: 1.5,

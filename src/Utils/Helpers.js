@@ -1,25 +1,25 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
 /**
- * Creates an extruded mesh from an SVG path string, correctly handling
+ * Creates a single merged mesh from an SVG path string, correctly handling
  * multiple sub-paths (islands) by centering the *combined* geometry
- * rather than each piece individually.
+ * and merging them into one efficient mesh.
  *
  * @param {string} svgPath - The SVG path data.
  * @param {THREE.Material} material - The material to apply.
  * @param {object} options - Extrusion options (depth, etc).
  * @param {SVGLoader} loader - Instance of SVGLoader.
- * @returns {THREE.Group} - A group containing the meshes.
+ * @returns {THREE.Mesh} - A single mesh containing the combined geometry, or null if empty.
  */
 export function createContinentMesh(svgPath, material, options, loader) {
+    // Wrap in SVG tag to ensure parser handles it as XML
     const parsedData = loader.parse(`<svg><path d="${svgPath}"/></svg>`);
-    const group = new THREE.Group();
     const geometries = [];
 
     // 1. Create all geometries first
     parsedData.paths.forEach((path) => {
-        // SVGLoader.createShapes is a static method
         const shapes = SVGLoader.createShapes(path);
         shapes.forEach((shape) => {
             const geometry = new THREE.ExtrudeGeometry(shape, options);
@@ -27,27 +27,38 @@ export function createContinentMesh(svgPath, material, options, loader) {
         });
     });
 
-    if (geometries.length === 0) return group;
+    if (geometries.length === 0) return null;
 
-    // 2. Compute the bounding box of ALL geometries combined
-    const combinedBox = new THREE.Box3();
-    geometries.forEach(geo => {
-        geo.computeBoundingBox();
-        combinedBox.union(geo.boundingBox);
-    });
+    // 2. Merge all geometries into one
+    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
 
-    // 3. Calculate the center of the combined box
-    const center = new THREE.Vector3();
-    combinedBox.getCenter(center);
+    // Dispose original geometries as they are now merged
+    geometries.forEach(g => g.dispose());
 
-    // 4. Create meshes and offset them so the group center is at (0,0,0)
-    geometries.forEach(geo => {
-        // Translate geometry to center it relative to the group origin
-        geo.translate(-center.x, -center.y, -center.z);
+    // 3. Center the merged geometry
+    mergedGeometry.center();
 
-        const mesh = new THREE.Mesh(geo, material);
-        group.add(mesh);
-    });
+    // 4. Create the single mesh
+    const mesh = new THREE.Mesh(mergedGeometry, material);
+    return mesh;
+}
 
-    return group;
+/**
+ * Throttles a function to only execute once every `limit` milliseconds.
+ *
+ * @param {Function} callback - The function to throttle.
+ * @param {number} limit - The time limit in milliseconds.
+ * @returns {Function} - The throttled function.
+ */
+export function throttle(callback, limit) {
+    let waiting = false;
+    return function () {
+        if (!waiting) {
+            callback.apply(this, arguments);
+            waiting = true;
+            setTimeout(function () {
+                waiting = false;
+            }, limit);
+        }
+    }
 }
