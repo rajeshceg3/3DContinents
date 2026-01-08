@@ -101,11 +101,12 @@ export class SceneManager {
         this.composer.addPass(renderPass);
 
         // Unreal Bloom
+        // Adjusted parameters to prevent whiteout on bright background
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.5, // strength
+            0.5, // strength (reduced from 1.5)
             0.4, // radius
-            0.85 // threshold
+            1.0 // threshold (increased from 0.85 to only bloom very bright sources)
         );
         this.composer.addPass(bloomPass);
     }
@@ -182,7 +183,19 @@ export class SceneManager {
 
         if (this.controls) this.controls.dispose();
 
+        // Use dedicated dispose methods
+        if (this.globe) {
+            this.globe.dispose();
+            this.globe = null;
+        }
+
+        if (this.starfield) {
+            this.starfield.dispose();
+            this.starfield = null;
+        }
+
         // Recursively dispose all objects in the scene
+        // Even though globe and starfield are disposed, this catches anything else
         if (this.scene) {
             this.scene.traverse((object) => {
                  if (object.geometry) object.geometry.dispose();
@@ -212,7 +225,5 @@ export class SceneManager {
         this.camera = null;
         this.controls = null;
         this.composer = null;
-        this.globe = null;
-        this.starfield = null;
     }
 }

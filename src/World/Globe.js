@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 import config from '../Config.js';
 import { continentsData } from '../Data/continents.js';
+import { createContinentMesh } from '../Utils/Helpers.js';
 
 export class Globe {
     constructor(scene) {
@@ -74,36 +75,27 @@ export class Globe {
         const loader = new SVGLoader();
 
         continentsData.forEach(data => {
-            const paths = loader.parse(data.svgPath).paths; // Use svgPath from data
             const group = new THREE.Group();
 
-            paths.forEach(path => {
-                const shapes = SVGLoader.createShapes(path);
-
-                shapes.forEach(shape => {
-                    const geometry = new THREE.ExtrudeGeometry(shape, {
-                        depth: 0.2,
-                        bevelEnabled: true,
-                        bevelThickness: 0.05,
-                        bevelSize: 0.05,
-                        bevelSegments: 2
-                    });
-
-                    // Center geometry
-                    geometry.center();
-
-                    // Create separate material for each continent based on data color
-                    const material = new THREE.MeshStandardMaterial({
-                        color: data.color || config.colors.continent, // Use data color
-                        roughness: 0.8,
-                        metalness: 0.2,
-                        side: THREE.DoubleSide
-                    });
-
-                    const mesh = new THREE.Mesh(geometry, material);
-                    group.add(mesh);
-                });
+            const material = new THREE.MeshStandardMaterial({
+                color: data.color || config.colors.continent,
+                roughness: 0.8,
+                metalness: 0.2,
+                side: THREE.DoubleSide
             });
+
+            // Use the helper to create a single merged mesh
+            const mesh = createContinentMesh(data.svgPath, material, {
+                depth: 0.2,
+                bevelEnabled: true,
+                bevelThickness: 0.05,
+                bevelSize: 0.05,
+                bevelSegments: 2
+            }, loader);
+
+            if (mesh) {
+                group.add(mesh);
+            }
 
             // Convert Lat/Lon to Vector3
             const pos = this.latLonToVector3(data.lat, data.lon, config.globe.radius);
@@ -111,14 +103,16 @@ export class Globe {
             group.position.copy(pos);
             group.lookAt(0, 0, 0);
 
-            // Fix orientation (SVG is y-down, 3D is y-up) and apply scale
+            // Fix orientation and apply scale
+            // SVG is Y-down. 3D is Y-up.
+            // Also, extrusion is along Z.
             const s = data.scale || 0.05;
             group.scale.set(s, -s, s);
 
             // Add user data for interaction
             group.userData = {
                 name: data.name,
-                info: data.trivia || data.info, // trivia from new data
+                info: data.trivia || data.info,
                 type: 'continent'
             };
 
@@ -140,5 +134,32 @@ export class Globe {
 
     animate() {
         // Subtle rotation or pulse could go here
+    }
+
+    dispose() {
+        if (this.group) {
+            this.scene.remove(this.group);
+            // Dispose sphere
+            if (this.sphere) {
+                this.sphere.geometry.dispose();
+                this.sphere.material.dispose();
+            }
+            // Dispose atmosphere (it's in scene, not group, but handled in SceneManager traversal usually?)
+            // SceneManager traverses the whole scene, so it will dispose atmosphere.
+            // But continents are in this.group.
+
+            // Dispose continents
+            this.continents.forEach(group => {
+                group.children.forEach(mesh => {
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) mesh.material.dispose();
+                });
+            });
+        }
+        if (this.atmosphere) {
+            this.scene.remove(this.atmosphere);
+            this.atmosphere.geometry.dispose();
+            this.atmosphere.material.dispose();
+        }
     }
 }

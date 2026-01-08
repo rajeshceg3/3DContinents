@@ -1,23 +1,49 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { createContinentMesh } from './Helpers.js';
+import { createContinentMesh, throttle } from './Helpers.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
 
-// Mock SVGLoader since it relies on DOMParser which jsdom handles, but we need to ensure it works.
-// We might not need to mock it if jsdom is present.
-// However, creating a real SVGLoader requires a DOM environment.
-
 describe('createContinentMesh', () => {
-    it('should create a group with meshes from SVG path', () => {
+    it('should create a single merged mesh from SVG path', () => {
         const svgPath = "M 10 10 L 90 90 L 10 90 Z"; // Simple triangle
         const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const loader = new SVGLoader(); // Should work with jsdom environment provided by vitest if configured
+        const loader = new SVGLoader();
 
-        const group = createContinentMesh(svgPath, material, { depth: 1 }, loader);
+        const mesh = createContinentMesh(svgPath, material, { depth: 1 }, loader);
 
-        expect(group).toBeInstanceOf(THREE.Group);
-        expect(group.children.length).toBeGreaterThan(0);
-        expect(group.children[0]).toBeInstanceOf(THREE.Mesh);
-        expect(group.children[0].geometry).toBeInstanceOf(THREE.ExtrudeGeometry);
+        expect(mesh).toBeInstanceOf(THREE.Mesh);
+        expect(mesh.geometry).toBeInstanceOf(THREE.BufferGeometry);
+        // Ensure it's not a Group anymore
+        expect(mesh.isGroup).toBeUndefined();
+    });
+
+    it('should return null for empty path', () => {
+        const svgPath = "";
+        const material = new THREE.MeshBasicMaterial();
+        const loader = new SVGLoader();
+
+        // Wrap in a try-catch because loader.parse might throw on empty string depending on impl
+        // But the helper wraps it in <svg>...
+        const mesh = createContinentMesh(svgPath, material, { depth: 1 }, loader);
+        // If no paths found, returns null
+        expect(mesh).toBeNull();
+    });
+});
+
+describe('throttle', () => {
+    it('should throttle function calls', async () => {
+        let count = 0;
+        const inc = () => count++;
+        const throttledInc = throttle(inc, 100);
+
+        throttledInc();
+        throttledInc();
+        throttledInc();
+
+        expect(count).toBe(1);
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+        throttledInc();
+        expect(count).toBe(2);
     });
 });
