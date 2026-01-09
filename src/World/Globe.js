@@ -101,7 +101,36 @@ export class Globe {
             const pos = this.latLonToVector3(data.lat, data.lon, config.globe.radius);
 
             group.position.copy(pos);
-            group.lookAt(0, 0, 0);
+
+            // Correctly align the continent using Quaternions
+            // "Up" (Z-axis of the mesh) should point to the center of the globe (0,0,0) - inverted pos
+            // "North" (Y-axis of the mesh) should align with the North direction on the sphere surface
+
+            const targetZ = pos.clone().normalize().negate(); // Z points IN to center
+            const globalNorth = new THREE.Vector3(0, 1, 0);
+
+            // If we are at the poles, globalNorth and targetZ are parallel, causing instability
+            // Handle poles by defining an arbitrary "up" for tangent calculation
+            let tangentNorth;
+            if (Math.abs(targetZ.y) > 0.99) {
+                 // Close to pole, use Z axis as reference for "north"/alignment
+                 tangentNorth = new THREE.Vector3(0, 0, 1).cross(targetZ).normalize().cross(targetZ);
+            } else {
+                 // Project Global North onto the tangent plane defined by targetZ
+                 // Tangent = GlobalNorth - (GlobalNorth . Normal) * Normal
+                 // Here Normal is -targetZ (outward)
+                 const normal = pos.clone().normalize();
+                 tangentNorth = globalNorth.clone().sub(normal.multiplyScalar(globalNorth.dot(normal))).normalize();
+            }
+
+            // Create rotation matrix basis
+            // X = Y cross Z
+            const targetX = new THREE.Vector3().crossVectors(tangentNorth, targetZ).normalize();
+            // Recompute Y to ensure orthogonality
+            const targetY = new THREE.Vector3().crossVectors(targetZ, targetX).normalize();
+
+            const rotationMatrix = new THREE.Matrix4().makeBasis(targetX, targetY, targetZ);
+            group.quaternion.setFromRotationMatrix(rotationMatrix);
 
             // Fix orientation and apply scale
             // SVG is Y-down. 3D is Y-up.

@@ -52,13 +52,28 @@ export function createContinentMesh(svgPath, material, options, loader) {
  */
 export function throttle(callback, limit) {
     let waiting = false;
+    let lastArgs = null;
+    let lastContext = null;
+
+    const timeoutFunc = function () {
+        if (lastArgs == null) {
+            waiting = false;
+        } else {
+            callback.apply(lastContext, lastArgs);
+            lastContext = null;
+            lastArgs = null;
+            setTimeout(timeoutFunc, limit);
+        }
+    };
+
     return function () {
         if (!waiting) {
             callback.apply(this, arguments);
             waiting = true;
-            setTimeout(function () {
-                waiting = false;
-            }, limit);
+            setTimeout(timeoutFunc, limit);
+        } else {
+            lastContext = this;
+            lastArgs = arguments;
         }
     }
 }

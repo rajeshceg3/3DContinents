@@ -218,7 +218,12 @@ export class SceneManager {
             this.renderer.forceContextLoss();
         }
 
-        if (this.composer) this.composer.dispose();
+        if (this.composer) {
+            this.composer.passes.forEach(pass => {
+                if (pass.dispose) pass.dispose();
+            });
+            this.composer.dispose();
+        }
 
         this.renderer = null;
         this.scene = null;
