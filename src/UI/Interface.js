@@ -168,6 +168,9 @@ export class UIManager {
     }
 
     onClick(event) {
+        // Prevent 3D interaction if clicking on UI
+        if (event.target !== this.sceneManager.canvas) return;
+
         if (state.animating) return;
         if (this.isDrag) return; // Ignore if it was a drag operation
 
