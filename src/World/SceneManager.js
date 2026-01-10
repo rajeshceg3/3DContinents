@@ -96,6 +96,7 @@ export class SceneManager {
 
     initPostProcessing() {
         this.composer = new EffectComposer(this.renderer);
+        this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         const renderPass = new RenderPass(this.scene, this.camera);
         this.composer.addPass(renderPass);
@@ -123,6 +124,7 @@ export class SceneManager {
         state.zoomed = true;
         state.animating = true;
         this.controls.autoRotate = false;
+        this.controls.enabled = false;
 
         // Calculate new camera position
         // Vector from center to target
@@ -136,11 +138,11 @@ export class SceneManager {
             z: newPos.z,
             duration: config.timing.zoomDuration,
             ease: "power2.inOut",
-            onUpdate: () => {
-                this.controls.update();
-            },
             onComplete: () => {
                 state.animating = false;
+                this.controls.enabled = true;
+                // Sync controls with new camera position
+                this.controls.update();
             }
         });
     }
@@ -149,6 +151,7 @@ export class SceneManager {
         if (state.animating) return;
         state.zoomed = false;
         state.animating = true;
+        this.controls.enabled = false;
 
         gsap.to(this.camera.position, {
             x: config.scene.cameraPos.x,
@@ -156,12 +159,12 @@ export class SceneManager {
             z: config.scene.cameraPos.z,
             duration: config.timing.zoomDuration,
             ease: "power2.inOut",
-            onUpdate: () => {
-                this.controls.update();
-            },
             onComplete: () => {
                 this.controls.autoRotate = true;
                 state.animating = false;
+                this.controls.enabled = true;
+                // Sync controls with new camera position
+                this.controls.update();
             }
         });
     }
@@ -215,7 +218,6 @@ export class SceneManager {
 
         if (this.renderer) {
             this.renderer.dispose();
-            this.renderer.forceContextLoss();
         }
 
         if (this.composer) {
