@@ -206,6 +206,14 @@ export class UIManager {
         if (this.elements.card) {
             this.elements.card.style.display = 'block';
             gsap.killTweensOf(this.elements.card);
+
+            // Set initial state only if we are starting from hidden/transparent
+            // This handles the case where it was 'display: none' but we want to animate from opacity 0
+            if (getComputedStyle(this.elements.card).opacity === '0' || this.elements.card.style.opacity === '0') {
+                 this.elements.card.style.opacity = '0';
+                 this.elements.card.style.transform = 'translateY(20px)';
+            }
+
             gsap.to(this.elements.card, {
                 opacity: 1,
                 y: 0,
@@ -244,6 +252,10 @@ export class UIManager {
     }
 
     dispose() {
+        if (this.throttledRaycast && this.throttledRaycast.cancel) {
+            this.throttledRaycast.cancel();
+        }
+
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mousedown', this._onMouseDown);
         window.removeEventListener('mouseup', this._onMouseUp);

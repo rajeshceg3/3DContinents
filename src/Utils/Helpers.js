@@ -48,32 +48,46 @@ export function createContinentMesh(svgPath, material, options, loader) {
  *
  * @param {Function} callback - The function to throttle.
  * @param {number} limit - The time limit in milliseconds.
- * @returns {Function} - The throttled function.
+ * @returns {Function} - The throttled function with a .cancel() method.
  */
 export function throttle(callback, limit) {
     let waiting = false;
     let lastArgs = null;
     let lastContext = null;
+    let timeoutId = null;
 
     const timeoutFunc = function () {
+        timeoutId = null;
         if (lastArgs == null) {
             waiting = false;
         } else {
             callback.apply(lastContext, lastArgs);
             lastContext = null;
             lastArgs = null;
-            setTimeout(timeoutFunc, limit);
+            timeoutId = setTimeout(timeoutFunc, limit);
         }
     };
 
-    return function () {
+    const throttled = function () {
         if (!waiting) {
             callback.apply(this, arguments);
             waiting = true;
-            setTimeout(timeoutFunc, limit);
+            timeoutId = setTimeout(timeoutFunc, limit);
         } else {
             lastContext = this;
             lastArgs = arguments;
         }
-    }
+    };
+
+    throttled.cancel = function() {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+        lastArgs = null;
+        lastContext = null;
+        waiting = false;
+    };
+
+    return throttled;
 }
