@@ -140,6 +140,10 @@ export class SceneManager {
             ease: "power2.inOut",
             onComplete: () => {
                 state.animating = false;
+
+                // Set the controls target to the continent so we orbit around IT
+                this.controls.target.copy(targetPosition);
+
                 this.controls.enabled = true;
                 // Sync controls with new camera position
                 this.controls.update();
@@ -162,6 +166,10 @@ export class SceneManager {
             onComplete: () => {
                 this.controls.autoRotate = true;
                 state.animating = false;
+
+                // Reset target to center of the globe
+                this.controls.target.set(0, 0, 0);
+
                 this.controls.enabled = true;
                 // Sync controls with new camera position
                 this.controls.update();
