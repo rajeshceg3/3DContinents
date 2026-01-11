@@ -142,6 +142,7 @@ export class Globe {
             group.userData = {
                 name: data.name,
                 info: data.trivia || data.info,
+                color: data.color || config.colors.continent,
                 type: 'continent'
             };
 
