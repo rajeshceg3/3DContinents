@@ -151,7 +151,9 @@ export class UIManager {
     }
 
     setHoverState(group, isHovered) {
-        const color = isHovered ? config.colors.continentHover : config.colors.continent;
+        const color = isHovered
+            ? config.colors.continentHover
+            : (group.userData.color || config.colors.continent);
 
         // Animate color
         group.children.forEach(mesh => {
