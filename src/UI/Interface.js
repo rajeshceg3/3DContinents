@@ -155,7 +155,23 @@ export class UIManager {
             ? config.colors.continentHover
             : (group.userData.color || config.colors.continent);
 
-        // Animate color
+        // Subtle lift effect on hover
+        // Apply once to the group, not inside the loop
+        if (isHovered) {
+            gsap.to(group.position, {
+                y: 0.1, // Slight lift relative to globe surface
+                duration: config.timing.hoverDuration,
+                ease: "power2.out"
+            });
+        } else {
+            gsap.to(group.position, {
+                y: 0,
+                duration: config.timing.hoverDuration,
+                ease: "power2.out"
+            });
+        }
+
+        // Animate color for all children meshes
         group.children.forEach(mesh => {
              // Ensure we kill any existing color tween to prevent conflict/leaks
              gsap.killTweensOf(mesh.material.color);
@@ -203,35 +219,46 @@ export class UIManager {
 
     showCard(data) {
         if (this.elements.cardTitle) this.elements.cardTitle.innerText = data.name;
-        if (this.elements.cardContent) this.elements.cardContent.innerHTML = `<p>${data.info}</p>`;
+        // Map trivia from data (continents.js) to info (expected by card) if info is missing
+        const content = data.info || data.trivia || "No information available.";
+        if (this.elements.cardContent) this.elements.cardContent.innerHTML = `<p>${content}</p>`;
 
         if (this.elements.card) {
             this.elements.card.style.display = 'block';
+            this.elements.card.classList.add('visible'); // Use class for transitions defined in CSS primarily, but help with JS
+
+            // GSAP Enhancement for "Editorial Slide-In"
             gsap.killTweensOf(this.elements.card);
 
-            // Set initial state only if we are starting from hidden/transparent
-            // This handles the case where it was 'display: none' but we want to animate from opacity 0
-            if (getComputedStyle(this.elements.card).opacity === '0' || this.elements.card.style.opacity === '0') {
-                 this.elements.card.style.opacity = '0';
-                 this.elements.card.style.transform = 'translateY(20px)';
-            }
+            // Initial state for animation
+            gsap.set(this.elements.card, {
+                opacity: 0,
+                x: 100,
+                rotationY: -10,
+                transformPerspective: 2000,
+                transformOrigin: "right center"
+            });
 
             gsap.to(this.elements.card, {
                 opacity: 1,
-                y: 0,
-                duration: 0.5,
-                ease: "back.out(1.7)"
+                x: 0,
+                rotationY: 0,
+                duration: 1.2,
+                ease: "power3.out"
             });
         }
     }
 
     hideCard() {
         if (this.elements.card) {
+            this.elements.card.classList.remove('visible');
             gsap.killTweensOf(this.elements.card);
             gsap.to(this.elements.card, {
                 opacity: 0,
-                y: 20,
-                duration: 0.3,
+                x: 50,
+                rotationY: -5,
+                duration: 0.5,
+                ease: "power2.in",
                 onComplete: () => {
                     this.elements.card.style.display = 'none';
                 }
