@@ -31,7 +31,7 @@ window.onload = () => {
                 sceneManager.render();
             } catch (err) {
                 console.error("Runtime Error:", err);
-                cancelAnimationFrame(animationId);
+                window.cancelAnimationFrame(animationId);
                 // Optionally stop animation or show error UI if critical
             }
         }

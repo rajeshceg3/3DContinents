@@ -81,7 +81,7 @@ export function throttle(callback, limit) {
 
     throttled.cancel = function() {
         if (timeoutId) {
-            clearTimeout(timeoutId);
+            window.clearTimeout(timeoutId);
             timeoutId = null;
         }
         lastArgs = null;
