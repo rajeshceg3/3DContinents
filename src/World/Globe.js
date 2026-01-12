@@ -100,13 +100,11 @@ export class Globe {
             // Convert Lat/Lon to Vector3
             const pos = this.latLonToVector3(data.lat, data.lon, config.globe.radius);
 
-            group.position.copy(pos);
-
             // Correctly align the continent using Quaternions
-            // "Up" (Z-axis of the mesh) should point to the center of the globe (0,0,0) - inverted pos
+            // "Up" (Z-axis of the mesh) should point OUT from the center of the globe (Normal)
             // "North" (Y-axis of the mesh) should align with the North direction on the sphere surface
 
-            const targetZ = pos.clone().normalize().negate(); // Z points IN to center
+            const targetZ = pos.clone().normalize(); // Z points OUT (Normal)
             const globalNorth = new THREE.Vector3(0, 1, 0);
 
             // If we are at the poles, globalNorth and targetZ are parallel, causing instability
@@ -118,9 +116,8 @@ export class Globe {
             } else {
                  // Project Global North onto the tangent plane defined by targetZ
                  // Tangent = GlobalNorth - (GlobalNorth . Normal) * Normal
-                 // Here Normal is -targetZ (outward)
-                 const normal = pos.clone().normalize();
-                 tangentNorth = globalNorth.clone().sub(normal.multiplyScalar(globalNorth.dot(normal))).normalize();
+                 const normal = targetZ;
+                 tangentNorth = globalNorth.clone().sub(normal.clone().multiplyScalar(globalNorth.dot(normal))).normalize();
             }
 
             // Create rotation matrix basis
@@ -131,6 +128,15 @@ export class Globe {
 
             const rotationMatrix = new THREE.Matrix4().makeBasis(targetX, targetY, targetZ);
             group.quaternion.setFromRotationMatrix(rotationMatrix);
+
+            // Offset the group position so the bottom of the continent (Z = -depth/2) sits on the surface
+            // Geometry is centered, so it ranges from -0.1 to 0.1 (depth 0.2)
+            // We want Z = -0.1 to be at Radius.
+            // Current center is at Radius. So Z is at Radius. Range: R-0.1 to R+0.1.
+            // We want range: R to R+0.2.
+            // So shift OUT by 0.1.
+            const offset = 0.1;
+            group.position.copy(pos.clone().add(targetZ.clone().multiplyScalar(offset)));
 
             // Fix orientation and apply scale
             // SVG is Y-down. 3D is Y-up.
@@ -169,27 +175,24 @@ export class Globe {
     dispose() {
         if (this.group) {
             this.scene.remove(this.group);
-            // Dispose sphere
-            if (this.sphere) {
-                this.sphere.geometry.dispose();
-                this.sphere.material.dispose();
-            }
-            // Dispose atmosphere (it's in scene, not group, but handled in SceneManager traversal usually?)
-            // SceneManager traverses the whole scene, so it will dispose atmosphere.
-            // But continents are in this.group.
 
-            // Dispose continents
-            this.continents.forEach(group => {
-                group.children.forEach(mesh => {
-                    if (mesh.geometry) mesh.geometry.dispose();
-                    if (mesh.material) mesh.material.dispose();
-                });
+            // Recursively dispose all objects in the group
+            this.group.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(m => m.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
             });
         }
+
         if (this.atmosphere) {
             this.scene.remove(this.atmosphere);
-            this.atmosphere.geometry.dispose();
-            this.atmosphere.material.dispose();
+            if (this.atmosphere.geometry) this.atmosphere.geometry.dispose();
+            if (this.atmosphere.material) this.atmosphere.material.dispose();
         }
     }
 }

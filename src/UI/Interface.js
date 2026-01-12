@@ -36,6 +36,21 @@ export class UIManager {
         this._onKeyDown = this.onKeyDown.bind(this);
         this._onResize = this.onResize.bind(this);
 
+        // Bind UI Element handlers
+        this._onCloseCard = () => {
+             this.hideCard();
+             this.sceneManager.resetView();
+        };
+        this._onResetView = () => {
+             if (!state.animating) {
+                 this.hideCard();
+                 this.sceneManager.resetView();
+             }
+        };
+        this._onStartQuiz = () => {
+             console.log("Expedition started (Logic to be implemented)");
+        };
+
         // Throttled raycasting for hover
         this.throttledRaycast = throttle(this.performRaycast.bind(this), 50);
 
@@ -45,28 +60,17 @@ export class UIManager {
     initListeners() {
         // Close Card
         if (this.elements.closeCard) {
-            this.elements.closeCard.addEventListener('click', () => {
-                this.hideCard();
-                this.sceneManager.resetView();
-            });
+            this.elements.closeCard.addEventListener('click', this._onCloseCard);
         }
 
         // Reset View
         if (this.elements.resetBtn) {
-            this.elements.resetBtn.addEventListener('click', () => {
-                if (!state.animating) {
-                    this.hideCard();
-                    this.sceneManager.resetView();
-                }
-            });
+            this.elements.resetBtn.addEventListener('click', this._onResetView);
         }
 
         // Start Quiz / Expedition
         if (this.elements.startQuizBtn) {
-            this.elements.startQuizBtn.addEventListener('click', () => {
-                // Placeholder for future logic
-                console.log("Expedition started (Logic to be implemented)");
-            });
+            this.elements.startQuizBtn.addEventListener('click', this._onStartQuiz);
         }
 
         // Mouse Interaction
@@ -211,7 +215,7 @@ export class UIManager {
 
             // Set initial state only if we are starting from hidden/transparent
             // This handles the case where it was 'display: none' but we want to animate from opacity 0
-            if (getComputedStyle(this.elements.card).opacity === '0' || this.elements.card.style.opacity === '0') {
+            if (window.getComputedStyle(this.elements.card).opacity === '0' || this.elements.card.style.opacity === '0') {
                  this.elements.card.style.opacity = '0';
                  this.elements.card.style.transform = 'translateY(20px)';
             }
@@ -257,6 +261,11 @@ export class UIManager {
         if (this.throttledRaycast && this.throttledRaycast.cancel) {
             this.throttledRaycast.cancel();
         }
+
+        // Remove UI Element listeners
+        if (this.elements.closeCard) this.elements.closeCard.removeEventListener('click', this._onCloseCard);
+        if (this.elements.resetBtn) this.elements.resetBtn.removeEventListener('click', this._onResetView);
+        if (this.elements.startQuizBtn) this.elements.startQuizBtn.removeEventListener('click', this._onStartQuiz);
 
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mousedown', this._onMouseDown);
