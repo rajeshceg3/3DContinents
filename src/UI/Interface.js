@@ -157,18 +157,35 @@ export class UIManager {
 
         // Subtle lift effect on hover
         // Apply once to the group, not inside the loop
-        if (isHovered) {
-            gsap.to(group.position, {
-                y: 0.1, // Slight lift relative to globe surface
-                duration: config.timing.hoverDuration,
-                ease: "power2.out"
-            });
-        } else {
-            gsap.to(group.position, {
-                y: 0,
-                duration: config.timing.hoverDuration,
-                ease: "power2.out"
-            });
+
+        // Use original position from userData to calculate lift vector
+        const originalPos = group.userData.originalPosition;
+
+        if (originalPos) {
+            gsap.killTweensOf(group.position);
+
+            if (isHovered) {
+                // Calculate target position: original + lift * normal
+                const normal = originalPos.clone().normalize();
+                const liftDistance = 0.2;
+                const targetPos = originalPos.clone().add(normal.multiplyScalar(liftDistance));
+
+                gsap.to(group.position, {
+                    x: targetPos.x,
+                    y: targetPos.y,
+                    z: targetPos.z,
+                    duration: config.timing.hoverDuration,
+                    ease: "power2.out"
+                });
+            } else {
+                gsap.to(group.position, {
+                    x: originalPos.x,
+                    y: originalPos.y,
+                    z: originalPos.z,
+                    duration: config.timing.hoverDuration,
+                    ease: "power2.out"
+                });
+            }
         }
 
         // Animate color for all children meshes
@@ -295,5 +312,17 @@ export class UIManager {
         // Kill GSAP tweens on elements
         if (this.elements.card) gsap.killTweensOf(this.elements.card);
         if (this.elements.loader) gsap.killTweensOf(this.elements.loader);
+
+        // Kill GSAP tweens on continents (position and color)
+        if (this.sceneManager && this.sceneManager.globe && this.sceneManager.globe.continents) {
+            this.sceneManager.globe.continents.forEach(group => {
+                gsap.killTweensOf(group.position);
+                group.children.forEach(mesh => {
+                    if (mesh.material && mesh.material.color) {
+                         gsap.killTweensOf(mesh.material.color);
+                    }
+                });
+            });
+        }
     }
 }

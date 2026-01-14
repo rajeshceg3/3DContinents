@@ -28,6 +28,22 @@ describe('createContinentMesh', () => {
         // If no paths found, returns null
         expect(mesh).toBeNull();
     });
+
+    it('should offset geometry to sit on surface (Z <= 0)', () => {
+        const svgPath = "M 0 0 L 10 0 L 10 10 L 0 10 Z"; // Square
+        const material = new THREE.MeshBasicMaterial();
+        const loader = new SVGLoader();
+        const depth = 2;
+
+        const mesh = createContinentMesh(svgPath, material, { depth }, loader);
+
+        mesh.geometry.computeBoundingBox();
+        const maxZ = mesh.geometry.boundingBox.max.z;
+
+        // Should be close to 0 (top surface at 0, bottom at -depth)
+        // Currently (before fix) it is centered at 0, so maxZ is depth/2 = 1
+        expect(Math.abs(maxZ)).toBeLessThan(0.001);
+    });
 });
 
 describe('throttle', () => {
