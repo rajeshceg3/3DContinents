@@ -119,6 +119,8 @@ export class UIManager {
     }
 
     performRaycast() {
+        if (!this.sceneManager || !this.sceneManager.camera || !this.sceneManager.globe) return;
+
         // Raycasting for hover effects
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
 
@@ -208,6 +210,8 @@ export class UIManager {
 
         if (state.animating) return;
         if (this.isDrag) return; // Ignore if it was a drag operation
+
+        if (!this.sceneManager || !this.sceneManager.camera || !this.sceneManager.globe) return;
 
         // Re-calculate mouse in case of fast click (though mouse down/up logic handles drag)
         // But we want exact click pos

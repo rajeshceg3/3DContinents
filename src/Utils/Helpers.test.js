@@ -35,7 +35,8 @@ describe('createContinentMesh', () => {
         const loader = new SVGLoader();
         const depth = 2;
 
-        const mesh = createContinentMesh(svgPath, material, { depth }, loader);
+        // Disable bevel to ensure depth match
+        const mesh = createContinentMesh(svgPath, material, { depth, bevelEnabled: false }, loader);
 
         mesh.geometry.computeBoundingBox();
         const maxZ = mesh.geometry.boundingBox.max.z;
@@ -43,6 +44,10 @@ describe('createContinentMesh', () => {
         // Should be close to 0 (top surface at 0, bottom at -depth)
         // Currently (before fix) it is centered at 0, so maxZ is depth/2 = 1
         expect(Math.abs(maxZ)).toBeLessThan(0.001);
+
+        const minZ = mesh.geometry.boundingBox.min.z;
+        // Should extend to -depth
+        expect(Math.abs(minZ - (-depth))).toBeLessThan(0.001);
     });
 });
 

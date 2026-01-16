@@ -38,10 +38,13 @@ export function createContinentMesh(svgPath, material, options, loader) {
     // 3. Center the merged geometry
     mergedGeometry.center();
 
-    // Fix: Translate so that the "bottom" (max Z) is at 0.
+    // Flip Z so that the beveled "front" face points to negative Z (outwards from sphere)
+    // and the flat "back" face points to positive Z (inwards/touching sphere).
+    mergedGeometry.scale(1, 1, -1);
+
+    // Fix: Translate so that the "bottom" (max Z, which is now the flat back face) is at 0.
     // In Globe.js, the local Z axis points IN towards the center of the sphere.
     // By default, ExtrudeGeometry creates shape in XY and extrudes in Z.
-    // Centering puts half below 0 and half above 0.
     // We want the entire mesh to be in negative Z (protruding OUT from the sphere).
     mergedGeometry.computeBoundingBox();
     const maxZ = mergedGeometry.boundingBox.max.z;
