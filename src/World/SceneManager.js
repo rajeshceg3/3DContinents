@@ -96,6 +96,7 @@ export class SceneManager {
 
     initPostProcessing() {
         this.composer = new EffectComposer(this.renderer);
+        this.composer.setSize(window.innerWidth, window.innerHeight);
         this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         const renderPass = new RenderPass(this.scene, this.camera);
