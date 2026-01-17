@@ -133,12 +133,21 @@ export class SceneManager {
         const distance = 10; // Zoom distance
         const newPos = direction.multiplyScalar(distance);
 
+        // Tween both position and lookAt target to ensure smooth transition
+        const currentTarget = this.controls.target.clone();
+        const tweenTarget = currentTarget.clone();
+
+        // 1. Tween Camera Position
         gsap.to(this.camera.position, {
             x: newPos.x,
             y: newPos.y,
             z: newPos.z,
             duration: config.timing.zoomDuration,
             ease: "power2.inOut",
+            onUpdate: () => {
+                // Manually look at the moving target
+                this.camera.lookAt(tweenTarget);
+            },
             onComplete: () => {
                 state.animating = false;
 
@@ -150,6 +159,15 @@ export class SceneManager {
                 this.controls.update();
             }
         });
+
+        // 2. Tween Target Proxy
+        gsap.to(tweenTarget, {
+            x: targetPosition.x,
+            y: targetPosition.y,
+            z: targetPosition.z,
+            duration: config.timing.zoomDuration,
+            ease: "power2.inOut"
+        });
     }
 
     resetView() {
@@ -158,12 +176,19 @@ export class SceneManager {
         state.animating = true;
         this.controls.enabled = false;
 
+        const currentTarget = this.controls.target.clone();
+        const targetReset = new THREE.Vector3(0, 0, 0);
+        const tweenTarget = currentTarget.clone();
+
         gsap.to(this.camera.position, {
             x: config.scene.cameraPos.x,
             y: config.scene.cameraPos.y,
             z: config.scene.cameraPos.z,
             duration: config.timing.zoomDuration,
             ease: "power2.inOut",
+            onUpdate: () => {
+                 this.camera.lookAt(tweenTarget);
+            },
             onComplete: () => {
                 this.controls.autoRotate = true;
                 state.animating = false;
@@ -175,6 +200,14 @@ export class SceneManager {
                 // Sync controls with new camera position
                 this.controls.update();
             }
+        });
+
+        gsap.to(tweenTarget, {
+            x: targetReset.x,
+            y: targetReset.y,
+            z: targetReset.z,
+            duration: config.timing.zoomDuration,
+            ease: "power2.inOut"
         });
     }
 
@@ -195,7 +228,44 @@ export class SceneManager {
 
         if (this.controls) this.controls.dispose();
 
-        // Use dedicated dispose methods
+        if (this.composer) {
+            this.composer.passes.forEach(pass => {
+                if (pass.dispose) pass.dispose();
+            });
+            this.composer.dispose();
+        }
+
+        // Recursively dispose all objects in the scene
+        // This handles geometries, materials, and textures
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                 if (object.geometry) object.geometry.dispose();
+
+                 if (object.material) {
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+                    materials.forEach(material => {
+                        if (material.map) material.map.dispose();
+                        if (material.lightMap) material.lightMap.dispose();
+                        if (material.bumpMap) material.bumpMap.dispose();
+                        if (material.normalMap) material.normalMap.dispose();
+                        if (material.specularMap) material.specularMap.dispose();
+                        if (material.envMap) material.envMap.dispose();
+                        if (material.alphaMap) material.alphaMap.dispose();
+                        if (material.aoMap) material.aoMap.dispose();
+                        if (material.displacementMap) material.displacementMap.dispose();
+                        if (material.emissiveMap) material.emissiveMap.dispose();
+                        if (material.gradientMap) material.gradientMap.dispose();
+                        if (material.metalnessMap) material.metalnessMap.dispose();
+                        if (material.roughnessMap) material.roughnessMap.dispose();
+
+                        material.dispose();
+                    });
+                 }
+            });
+            this.scene.clear();
+        }
+
+        // Use dedicated dispose methods for component-specific cleanup (e.g. interval clearing)
         if (this.globe) {
             this.globe.dispose();
             this.globe = null;
@@ -206,34 +276,12 @@ export class SceneManager {
             this.starfield = null;
         }
 
-        // Recursively dispose all objects in the scene
-        // Even though globe and starfield are disposed, this catches anything else
-        if (this.scene) {
-            this.scene.traverse((object) => {
-                 if (object.geometry) object.geometry.dispose();
-                 if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
-                    } else {
-                        object.material.dispose();
-                    }
-                 }
-            });
-            this.scene.clear();
-        }
-
         // Kill any active GSAP tweens
         if (this.camera) gsap.killTweensOf(this.camera.position);
 
         if (this.renderer) {
             this.renderer.dispose();
-        }
-
-        if (this.composer) {
-            this.composer.passes.forEach(pass => {
-                if (pass.dispose) pass.dispose();
-            });
-            this.composer.dispose();
+            // Note: We avoid forceContextLoss() to prevent crashes on re-initialization
         }
 
         this.renderer = null;

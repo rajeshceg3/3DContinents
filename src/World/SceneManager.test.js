@@ -14,7 +14,15 @@ vi.mock('three/addons/controls/OrbitControls.js', () => ({
                 y: 0,
                 z: 0,
                 set: function(x, y, z) { this.x = x; this.y = y; this.z = z; },
-                copy: function(v) { this.x = v.x; this.y = v.y; this.z = v.z; }
+                copy: function(v) { this.x = v.x; this.y = v.y; this.z = v.z; },
+                clone: function() {
+                    const cloned = { ...this };
+                    // Ensure methods are preserved/bound correctly in the clone
+                    cloned.set = this.set;
+                    cloned.copy = this.copy;
+                    cloned.clone = this.clone;
+                    return cloned;
+                }
             };
             this.enabled = true;
             // Mock camera attached
