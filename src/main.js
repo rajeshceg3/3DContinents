@@ -3,23 +3,26 @@ import { UIManager } from './UI/Interface.js';
 import { resetState } from './State.js';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 
-window.onload = () => {
-    // Reset global state
-    resetState();
-
-    // 1. WebGL Capability Check
-    if (!WebGL.isWebGLAvailable()) {
-        const warning = WebGL.getWebGLErrorMessage();
-        document.getElementById('loader').innerHTML = ''; // Clear loader
-        document.getElementById('loader').appendChild(warning);
-        return;
-    }
-
-    // 2. Initialize Application
-    const canvas = document.querySelector('#webgl');
-
+const init = () => {
     // Error Boundary for Initialization
     try {
+        // Reset global state
+        resetState();
+
+        // 1. WebGL Capability Check
+        if (!WebGL.isWebGLAvailable()) {
+            const warning = WebGL.getWebGLErrorMessage();
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.innerHTML = ''; // Clear loader
+                loader.appendChild(warning);
+            }
+            return;
+        }
+
+        // 2. Initialize Application
+        const canvas = document.querySelector('#webgl');
+
         const sceneManager = new SceneManager(canvas);
         const uiManager = new UIManager(sceneManager);
 
@@ -57,3 +60,12 @@ window.onload = () => {
         }
     }
 };
+
+// Execute initialization
+// Module scripts are deferred by default, meaning they run after the document is parsed.
+// We can check readyState to be safe, but usually running immediately is fine for modules.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
