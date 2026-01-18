@@ -35,6 +35,9 @@ export class UIManager {
         this._onClick = this.onClick.bind(this);
         this._onKeyDown = this.onKeyDown.bind(this);
         this._onResize = this.onResize.bind(this);
+        this._onCloseCardClick = this.onCloseCardClick.bind(this);
+        this._onResetBtnClick = this.onResetBtnClick.bind(this);
+        this._onStartQuizBtnClick = this.onStartQuizBtnClick.bind(this);
 
         // Throttled raycasting for hover
         this.throttledRaycast = throttle(this.performRaycast.bind(this), 50);
@@ -45,28 +48,17 @@ export class UIManager {
     initListeners() {
         // Close Card
         if (this.elements.closeCard) {
-            this.elements.closeCard.addEventListener('click', () => {
-                this.hideCard();
-                this.sceneManager.resetView();
-            });
+            this.elements.closeCard.addEventListener('click', this._onCloseCardClick);
         }
 
         // Reset View
         if (this.elements.resetBtn) {
-            this.elements.resetBtn.addEventListener('click', () => {
-                if (!state.animating) {
-                    this.hideCard();
-                    this.sceneManager.resetView();
-                }
-            });
+            this.elements.resetBtn.addEventListener('click', this._onResetBtnClick);
         }
 
         // Start Quiz / Expedition
         if (this.elements.startQuizBtn) {
-            this.elements.startQuizBtn.addEventListener('click', () => {
-                // Placeholder for future logic
-                console.log("Expedition started (Logic to be implemented)");
-            });
+            this.elements.startQuizBtn.addEventListener('click', this._onStartQuizBtnClick);
         }
 
         // Mouse Interaction
@@ -80,6 +72,23 @@ export class UIManager {
 
     onResize() {
         // Handle UI resize logic if needed
+    }
+
+    onCloseCardClick() {
+        this.hideCard();
+        this.sceneManager.resetView();
+    }
+
+    onResetBtnClick() {
+        if (!state.animating) {
+            this.hideCard();
+            this.sceneManager.resetView();
+        }
+    }
+
+    onStartQuizBtnClick() {
+        // Placeholder for future logic
+        console.log("Expedition started (Logic to be implemented)");
     }
 
     onMouseDown(event) {
@@ -312,6 +321,16 @@ export class UIManager {
         window.removeEventListener('click', this._onClick);
         window.removeEventListener('keydown', this._onKeyDown);
         window.removeEventListener('resize', this._onResize);
+
+        if (this.elements.closeCard) {
+            this.elements.closeCard.removeEventListener('click', this._onCloseCardClick);
+        }
+        if (this.elements.resetBtn) {
+            this.elements.resetBtn.removeEventListener('click', this._onResetBtnClick);
+        }
+        if (this.elements.startQuizBtn) {
+            this.elements.startQuizBtn.removeEventListener('click', this._onStartQuizBtnClick);
+        }
 
         // Kill GSAP tweens on elements
         if (this.elements.card) gsap.killTweensOf(this.elements.card);

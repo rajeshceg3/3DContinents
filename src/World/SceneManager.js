@@ -235,37 +235,7 @@ export class SceneManager {
             this.composer.dispose();
         }
 
-        // Recursively dispose all objects in the scene
-        // This handles geometries, materials, and textures
-        if (this.scene) {
-            this.scene.traverse((object) => {
-                 if (object.geometry) object.geometry.dispose();
-
-                 if (object.material) {
-                    const materials = Array.isArray(object.material) ? object.material : [object.material];
-                    materials.forEach(material => {
-                        if (material.map) material.map.dispose();
-                        if (material.lightMap) material.lightMap.dispose();
-                        if (material.bumpMap) material.bumpMap.dispose();
-                        if (material.normalMap) material.normalMap.dispose();
-                        if (material.specularMap) material.specularMap.dispose();
-                        if (material.envMap) material.envMap.dispose();
-                        if (material.alphaMap) material.alphaMap.dispose();
-                        if (material.aoMap) material.aoMap.dispose();
-                        if (material.displacementMap) material.displacementMap.dispose();
-                        if (material.emissiveMap) material.emissiveMap.dispose();
-                        if (material.gradientMap) material.gradientMap.dispose();
-                        if (material.metalnessMap) material.metalnessMap.dispose();
-                        if (material.roughnessMap) material.roughnessMap.dispose();
-
-                        material.dispose();
-                    });
-                 }
-            });
-            this.scene.clear();
-        }
-
-        // Use dedicated dispose methods for component-specific cleanup (e.g. interval clearing)
+        // Use dedicated dispose methods for component-specific cleanup
         if (this.globe) {
             this.globe.dispose();
             this.globe = null;
@@ -274,6 +244,27 @@ export class SceneManager {
         if (this.starfield) {
             this.starfield.dispose();
             this.starfield = null;
+        }
+
+        // Now clear the scene and handle any remaining objects
+        if (this.scene) {
+            this.scene.traverse((object) => {
+                 if (object.geometry) object.geometry.dispose();
+
+                 if (object.material) {
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+                    materials.forEach(material => {
+                        // Dispose all textures
+                        for (const key in material) {
+                            if (material[key] && material[key].isTexture) {
+                                material[key].dispose();
+                            }
+                        }
+                        material.dispose();
+                    });
+                 }
+            });
+            this.scene.clear();
         }
 
         // Kill any active GSAP tweens
