@@ -61,7 +61,7 @@ export class Globe {
         const material = new THREE.ShaderMaterial({
             vertexShader,
             fragmentShader,
-            blending: THREE.AdditiveBlending,
+            blending: THREE.NormalBlending,
             side: THREE.BackSide,
             transparent: true,
             depthWrite: false
@@ -94,6 +94,8 @@ export class Globe {
             }, loader);
 
             if (mesh) {
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
                 group.add(mesh);
             }
 
