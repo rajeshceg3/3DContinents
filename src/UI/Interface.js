@@ -261,15 +261,28 @@ export class UIManager {
 
     startIntro() {
         if (this.elements.loader) {
+            console.log("Starting intro animation...");
             gsap.killTweensOf(this.elements.loader);
             gsap.to(this.elements.loader, {
                 opacity: 0,
                 duration: 2.0,
                 ease: "power2.inOut",
                 onComplete: () => {
+                    console.log("Intro animation complete.");
                     this.elements.loader.style.display = 'none';
                 }
             });
+
+            // Fallback: Force remove loader if animation hangs or GSAP fails
+            setTimeout(() => {
+                if (this.elements.loader.style.display !== 'none') {
+                    console.warn("Force removing loader via fallback.");
+                    this.elements.loader.style.opacity = '0';
+                    this.elements.loader.style.display = 'none';
+                }
+            }, 2500);
+        } else {
+            console.warn("Loader element not found.");
         }
     }
 
