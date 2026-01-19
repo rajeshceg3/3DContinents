@@ -4,6 +4,7 @@ import { resetState } from './State.js';
 import WebGL from 'three/addons/capabilities/WebGL.js';
 
 const init = () => {
+    console.log("Initializing Aether...");
     // Error Boundary for Initialization
     try {
         // Reset global state
@@ -11,6 +12,7 @@ const init = () => {
 
         // 1. WebGL Capability Check
         if (!WebGL.isWebGLAvailable()) {
+            console.error("WebGL not available");
             const warning = WebGL.getWebGLErrorMessage();
             const loader = document.getElementById('loader');
             if (loader) {
@@ -22,6 +24,7 @@ const init = () => {
 
         // 2. Initialize Application
         const canvas = document.querySelector('#webgl');
+        if (!canvas) throw new Error("Canvas element #webgl not found");
 
         const sceneManager = new SceneManager(canvas);
         const uiManager = new UIManager(sceneManager);
@@ -39,6 +42,7 @@ const init = () => {
             }
         }
         animate();
+        console.log("Animation loop started.");
 
         // Start Intro
         uiManager.startIntro();
