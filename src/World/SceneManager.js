@@ -14,12 +14,12 @@ export class SceneManager {
         this.canvas = canvas;
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(config.colors.background);
-        this.scene.fog = new THREE.FogExp2(config.colors.background, 0.02);
+        this.scene.fog = new THREE.FogExp2(config.colors.background, 0.015);
 
         this.initRenderer();
         this.initCamera();
         this.initLights();
-        this.initPostProcessing(); // Add post-processing
+        this.initPostProcessing();
 
         this.globe = new Globe(this.scene);
         this.starfield = new Starfield(this.scene);
@@ -27,7 +27,7 @@ export class SceneManager {
         this.controls = new OrbitControls(this.camera, this.canvas);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.enableZoom = false; // Controlled programmatically
+        this.controls.enableZoom = false;
         this.controls.enablePan = false;
         this.controls.autoRotate = true;
         this.controls.autoRotateSpeed = 0.5;
@@ -40,12 +40,13 @@ export class SceneManager {
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             antialias: true,
-            powerPreference: "high-performance"
+            powerPreference: "high-performance",
+            alpha: true // Allow transparency for background effects
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.0;
+        this.renderer.toneMappingExposure = 1.1;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
@@ -66,11 +67,11 @@ export class SceneManager {
     }
 
     initLights() {
-        // Ambient Light
+        // Soft Ambient Light
         const ambientLight = new THREE.AmbientLight(0xffffff, config.scene.ambientIntensity);
         this.scene.add(ambientLight);
 
-        // Main Sun Light (Key Light)
+        // Main Sun Light (Key Light) - Warm
         this.sunLight = new THREE.DirectionalLight(config.colors.sun, config.scene.sunIntensity);
         this.sunLight.position.set(
             config.scene.sunPosition.x,
@@ -80,16 +81,17 @@ export class SceneManager {
         this.sunLight.castShadow = true;
         this.sunLight.shadow.mapSize.width = 2048;
         this.sunLight.shadow.mapSize.height = 2048;
+        this.sunLight.shadow.bias = -0.0001;
         this.scene.add(this.sunLight);
 
-        // Fill Light (Cooler, softer)
-        const fillLight = new THREE.DirectionalLight(0xccccff, 0.5);
-        fillLight.position.set(-20, 0, 20);
+        // Fill Light (Cooler) - From opposite side
+        const fillLight = new THREE.DirectionalLight(0xD8E2DC, 0.8);
+        fillLight.position.set(-30, 10, -10);
         this.scene.add(fillLight);
 
-        // Rim Light (Backlight for atmosphere)
-        const rimLight = new THREE.SpotLight(config.colors.rim, 2);
-        rimLight.position.set(0, 10, -20);
+        // Rim Light (Backlight for contour)
+        const rimLight = new THREE.SpotLight(config.colors.rim, 2.5);
+        rimLight.position.set(0, 20, -30);
         rimLight.lookAt(0, 0, 0);
         this.scene.add(rimLight);
     }
@@ -102,13 +104,12 @@ export class SceneManager {
         const renderPass = new RenderPass(this.scene, this.camera);
         this.composer.addPass(renderPass);
 
-        // Unreal Bloom
-        // Adjusted parameters to prevent whiteout on bright background
+        // Refined Bloom for "Glow" effect without burnout
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.5, // strength (reduced from 1.5)
-            0.4, // radius
-            1.0 // threshold (increased from 0.85 to only bloom very bright sources)
+            0.4,  // strength
+            0.6,  // radius
+            0.9   // threshold
         );
         this.composer.addPass(bloomPass);
     }
@@ -120,24 +121,19 @@ export class SceneManager {
         this.composer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // Camera Animation
     focusOn(targetPosition) {
         state.zoomed = true;
         state.animating = true;
         this.controls.autoRotate = false;
         this.controls.enabled = false;
 
-        // Calculate new camera position
-        // Vector from center to target
         const direction = targetPosition.clone().normalize();
-        const distance = 10; // Zoom distance
+        const distance = 9;
         const newPos = direction.multiplyScalar(distance);
 
-        // Tween both position and lookAt target to ensure smooth transition
         const currentTarget = this.controls.target.clone();
         const tweenTarget = currentTarget.clone();
 
-        // 1. Tween Camera Position
         gsap.to(this.camera.position, {
             x: newPos.x,
             y: newPos.y,
@@ -145,22 +141,16 @@ export class SceneManager {
             duration: config.timing.zoomDuration,
             ease: "power2.inOut",
             onUpdate: () => {
-                // Manually look at the moving target
                 this.camera.lookAt(tweenTarget);
             },
             onComplete: () => {
                 state.animating = false;
-
-                // Set the controls target to the continent so we orbit around IT
                 this.controls.target.copy(targetPosition);
-
                 this.controls.enabled = true;
-                // Sync controls with new camera position
                 this.controls.update();
             }
         });
 
-        // 2. Tween Target Proxy
         gsap.to(tweenTarget, {
             x: targetPosition.x,
             y: targetPosition.y,
@@ -192,12 +182,8 @@ export class SceneManager {
             onComplete: () => {
                 this.controls.autoRotate = true;
                 state.animating = false;
-
-                // Reset target to center of the globe
                 this.controls.target.set(0, 0, 0);
-
                 this.controls.enabled = true;
-                // Sync controls with new camera position
                 this.controls.update();
             }
         });
@@ -212,20 +198,14 @@ export class SceneManager {
     }
 
     render() {
-        // Animate globe and starfield
         if (this.globe) this.globe.animate();
         if (this.starfield) this.starfield.animate();
-
         if (this.controls) this.controls.update();
-
-        // Use composer for post-processing
         if (this.composer) this.composer.render();
     }
 
-    // Cleanup to prevent memory leaks
     dispose() {
         window.removeEventListener('resize', this._onWindowResize);
-
         if (this.controls) this.controls.dispose();
 
         if (this.composer) {
@@ -235,7 +215,6 @@ export class SceneManager {
             this.composer.dispose();
         }
 
-        // Use dedicated dispose methods for component-specific cleanup
         if (this.globe) {
             this.globe.dispose();
             this.globe = null;
@@ -246,19 +225,14 @@ export class SceneManager {
             this.starfield = null;
         }
 
-        // Now clear the scene and handle any remaining objects
         if (this.scene) {
             this.scene.traverse((object) => {
                  if (object.geometry) object.geometry.dispose();
-
                  if (object.material) {
                     const materials = Array.isArray(object.material) ? object.material : [object.material];
                     materials.forEach(material => {
-                        // Dispose all textures
                         for (const key in material) {
-                            if (material[key] && material[key].isTexture) {
-                                material[key].dispose();
-                            }
+                            if (material[key] && material[key].isTexture) material[key].dispose();
                         }
                         material.dispose();
                     });
@@ -267,13 +241,9 @@ export class SceneManager {
             this.scene.clear();
         }
 
-        // Kill any active GSAP tweens
         if (this.camera) gsap.killTweensOf(this.camera.position);
 
-        if (this.renderer) {
-            this.renderer.dispose();
-            // Note: We avoid forceContextLoss() to prevent crashes on re-initialization
-        }
+        if (this.renderer) this.renderer.dispose();
 
         this.renderer = null;
         this.scene = null;

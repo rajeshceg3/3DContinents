@@ -14,7 +14,7 @@ export class UIManager {
         this.mouseDownPos = new THREE.Vector2();
         this.isDrag = false;
 
-        // DOM Elements - IDs aligned with index.html
+        // DOM Elements
         this.elements = {
             loader: document.getElementById('loader'),
             card: document.getElementById('infoCard'),
@@ -28,7 +28,14 @@ export class UIManager {
             startQuizBtn: document.getElementById('quizBtn')
         };
 
-        // Bind methods for event listeners to allow removal
+        // Create Custom Cursor
+        this.cursor = document.createElement('div');
+        this.cursor.className = 'custom-cursor';
+        document.body.appendChild(this.cursor);
+        this.cursorTarget = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        this.cursorPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+        // Bind methods
         this._onMouseMove = this.onMouseMove.bind(this);
         this._onMouseDown = this.onMouseDown.bind(this);
         this._onMouseUp = this.onMouseUp.bind(this);
@@ -38,30 +45,19 @@ export class UIManager {
         this._onCloseCardClick = this.onCloseCardClick.bind(this);
         this._onResetBtnClick = this.onResetBtnClick.bind(this);
         this._onStartQuizBtnClick = this.onStartQuizBtnClick.bind(this);
+        this._animateCursor = this.animateCursor.bind(this);
 
-        // Throttled raycasting for hover
         this.throttledRaycast = throttle(this.performRaycast.bind(this), 50);
 
         this.initListeners();
+        this.animateCursor();
     }
 
     initListeners() {
-        // Close Card
-        if (this.elements.closeCard) {
-            this.elements.closeCard.addEventListener('click', this._onCloseCardClick);
-        }
+        if (this.elements.closeCard) this.elements.closeCard.addEventListener('click', this._onCloseCardClick);
+        if (this.elements.resetBtn) this.elements.resetBtn.addEventListener('click', this._onResetBtnClick);
+        if (this.elements.startQuizBtn) this.elements.startQuizBtn.addEventListener('click', this._onStartQuizBtnClick);
 
-        // Reset View
-        if (this.elements.resetBtn) {
-            this.elements.resetBtn.addEventListener('click', this._onResetBtnClick);
-        }
-
-        // Start Quiz / Expedition
-        if (this.elements.startQuizBtn) {
-            this.elements.startQuizBtn.addEventListener('click', this._onStartQuizBtnClick);
-        }
-
-        // Mouse Interaction
         window.addEventListener('mousemove', this._onMouseMove);
         window.addEventListener('mousedown', this._onMouseDown);
         window.addEventListener('mouseup', this._onMouseUp);
@@ -70,8 +66,19 @@ export class UIManager {
         window.addEventListener('resize', this._onResize);
     }
 
+    animateCursor() {
+        // Smooth cursor follow
+        const dt = 0.2;
+        this.cursorPos.x += (this.cursorTarget.x - this.cursorPos.x) * dt;
+        this.cursorPos.y += (this.cursorTarget.y - this.cursorPos.y) * dt;
+
+        this.cursor.style.transform = `translate(${this.cursorPos.x}px, ${this.cursorPos.y}px)`;
+
+        requestAnimationFrame(this._animateCursor);
+    }
+
     onResize() {
-        // Handle UI resize logic if needed
+        // Handle UI resize
     }
 
     onCloseCardClick() {
@@ -87,24 +94,23 @@ export class UIManager {
     }
 
     onStartQuizBtnClick() {
-        // Placeholder for future logic
-        console.log("Expedition started (Logic to be implemented)");
+        console.log("Expedition started");
+        // Future implementation
     }
 
     onMouseDown(event) {
         this.mouseDownPos.set(event.clientX, event.clientY);
         this.isDrag = false;
+        this.cursor.classList.add('active');
     }
 
     onMouseUp(event) {
+        this.cursor.classList.remove('active');
         const dist = Math.sqrt(
             Math.pow(event.clientX - this.mouseDownPos.x, 2) +
             Math.pow(event.clientY - this.mouseDownPos.y, 2)
         );
-        // If moved more than 5 pixels, consider it a drag
-        if (dist > 5) {
-            this.isDrag = true;
-        }
+        if (dist > 5) this.isDrag = true;
     }
 
     onKeyDown(e) {
@@ -117,93 +123,64 @@ export class UIManager {
     }
 
     onMouseMove(event) {
-        // Normalize mouse coordinates
+        // Update cursor target
+        this.cursorTarget.x = event.clientX;
+        this.cursorTarget.y = event.clientY;
+
+        // Three.js coord normalization
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         if (state.animating || state.zoomed) return;
-
-        // Perform raycasting (throttled)
         this.throttledRaycast();
     }
 
     performRaycast() {
         if (!this.sceneManager || !this.sceneManager.camera || !this.sceneManager.globe) return;
 
-        // Raycasting for hover effects
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
-
-        // Optimize: use recursive intersection on the continent groups directly
         const intersects = this.raycaster.intersectObjects(this.sceneManager.globe.continents, true);
 
         if (intersects.length > 0) {
             const object = intersects[0].object;
-            // The object is a Mesh. Its parent is the Group (continent).
             const group = object.parent;
 
             if (state.hovered !== group) {
-                // Reset previous hover
                 if (state.hovered) this.setHoverState(state.hovered, false);
-
-                // Set new hover
                 this.setHoverState(group, true);
                 state.hovered = group;
-
-                // Change cursor
-                document.body.style.cursor = 'pointer';
+                this.cursor.classList.add('hover');
             }
         } else {
             if (state.hovered) {
                 this.setHoverState(state.hovered, false);
                 state.hovered = null;
-                document.body.style.cursor = 'default';
+                this.cursor.classList.remove('hover');
             }
         }
     }
 
     setHoverState(group, isHovered) {
-        const color = isHovered
-            ? config.colors.continentHover
-            : (group.userData.color || config.colors.continent);
-
-        // Subtle lift effect on hover
-        // Apply once to the group, not inside the loop
-
-        // Use original position from userData to calculate lift vector
+        const color = isHovered ? config.colors.continentHover : (group.userData.color || config.colors.continent);
         const originalPos = group.userData.originalPosition;
 
         if (originalPos) {
             gsap.killTweensOf(group.position);
+            const targetPos = isHovered
+                ? originalPos.clone().add(originalPos.clone().normalize().multiplyScalar(0.3))
+                : originalPos;
 
-            if (isHovered) {
-                // Calculate target position: original + lift * normal
-                const normal = originalPos.clone().normalize();
-                const liftDistance = 0.2;
-                const targetPos = originalPos.clone().add(normal.multiplyScalar(liftDistance));
-
-                gsap.to(group.position, {
-                    x: targetPos.x,
-                    y: targetPos.y,
-                    z: targetPos.z,
-                    duration: config.timing.hoverDuration,
-                    ease: "power2.out"
-                });
-            } else {
-                gsap.to(group.position, {
-                    x: originalPos.x,
-                    y: originalPos.y,
-                    z: originalPos.z,
-                    duration: config.timing.hoverDuration,
-                    ease: "power2.out"
-                });
-            }
+            gsap.to(group.position, {
+                x: targetPos.x,
+                y: targetPos.y,
+                z: targetPos.z,
+                duration: config.timing.hoverDuration,
+                ease: "power2.out"
+            });
         }
 
-        // Animate color for all children meshes
         group.children.forEach(mesh => {
-             // Ensure we kill any existing color tween to prevent conflict/leaks
              gsap.killTweensOf(mesh.material.color);
-
              gsap.to(mesh.material.color, {
                  r: new THREE.Color(color).r,
                  g: new THREE.Color(color).g,
@@ -214,19 +191,13 @@ export class UIManager {
     }
 
     onClick(event) {
-        // Prevent 3D interaction if clicking on UI
         if (event.target !== this.sceneManager.canvas) return;
-
-        if (state.animating) return;
-        if (this.isDrag) return; // Ignore if it was a drag operation
+        if (state.animating || this.isDrag) return;
 
         if (!this.sceneManager || !this.sceneManager.camera || !this.sceneManager.globe) return;
 
-        // Re-calculate mouse in case of fast click (though mouse down/up logic handles drag)
-        // But we want exact click pos
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
 
         const intersects = this.raycaster.intersectObjects(this.sceneManager.globe.continents, true);
@@ -237,11 +208,8 @@ export class UIManager {
 
             if (group.userData) {
                 this.showCard(group.userData);
-
-                // Focus camera on this continent
                 const targetPos = new THREE.Vector3();
                 group.getWorldPosition(targetPos);
-
                 this.sceneManager.focusOn(targetPos);
             }
         }
@@ -249,31 +217,26 @@ export class UIManager {
 
     showCard(data) {
         if (this.elements.cardTitle) this.elements.cardTitle.innerText = data.name;
-        // Map trivia from data (continents.js) to info (expected by card) if info is missing
         const content = data.info || data.trivia || "No information available.";
         if (this.elements.cardContent) this.elements.cardContent.innerHTML = `<p>${content}</p>`;
 
         if (this.elements.card) {
             this.elements.card.style.display = 'block';
-            this.elements.card.classList.add('visible'); // Use class for transitions defined in CSS primarily, but help with JS
+            this.elements.card.classList.add('visible');
 
-            // GSAP Enhancement for "Editorial Slide-In"
             gsap.killTweensOf(this.elements.card);
-
-            // Initial state for animation
             gsap.set(this.elements.card, {
                 opacity: 0,
-                x: 100,
-                rotationY: -10,
-                transformPerspective: 2000,
+                x: 80,
+                rotationY: -5,
+                transformPerspective: 1000,
                 transformOrigin: "right center"
             });
-
             gsap.to(this.elements.card, {
                 opacity: 1,
                 x: 0,
                 rotationY: 0,
-                duration: 1.2,
+                duration: 1.0,
                 ease: "power3.out"
             });
         }
@@ -285,9 +248,9 @@ export class UIManager {
             gsap.killTweensOf(this.elements.card);
             gsap.to(this.elements.card, {
                 opacity: 0,
-                x: 50,
-                rotationY: -5,
-                duration: 0.5,
+                x: 40,
+                rotationY: -2,
+                duration: 0.6,
                 ease: "power2.in",
                 onComplete: () => {
                     this.elements.card.style.display = 'none';
@@ -297,12 +260,12 @@ export class UIManager {
     }
 
     startIntro() {
-        // Hide loader
         if (this.elements.loader) {
             gsap.killTweensOf(this.elements.loader);
             gsap.to(this.elements.loader, {
                 opacity: 0,
-                duration: 1.5,
+                duration: 2.0,
+                ease: "power2.inOut",
                 onComplete: () => {
                     this.elements.loader.style.display = 'none';
                 }
@@ -311,9 +274,7 @@ export class UIManager {
     }
 
     dispose() {
-        if (this.throttledRaycast && this.throttledRaycast.cancel) {
-            this.throttledRaycast.cancel();
-        }
+        if (this.throttledRaycast && this.throttledRaycast.cancel) this.throttledRaycast.cancel();
 
         window.removeEventListener('mousemove', this._onMouseMove);
         window.removeEventListener('mousedown', this._onMouseDown);
@@ -322,28 +283,20 @@ export class UIManager {
         window.removeEventListener('keydown', this._onKeyDown);
         window.removeEventListener('resize', this._onResize);
 
-        if (this.elements.closeCard) {
-            this.elements.closeCard.removeEventListener('click', this._onCloseCardClick);
-        }
-        if (this.elements.resetBtn) {
-            this.elements.resetBtn.removeEventListener('click', this._onResetBtnClick);
-        }
-        if (this.elements.startQuizBtn) {
-            this.elements.startQuizBtn.removeEventListener('click', this._onStartQuizBtnClick);
-        }
+        if (this.elements.closeCard) this.elements.closeCard.removeEventListener('click', this._onCloseCardClick);
+        if (this.elements.resetBtn) this.elements.resetBtn.removeEventListener('click', this._onResetBtnClick);
+        if (this.elements.startQuizBtn) this.elements.startQuizBtn.removeEventListener('click', this._onStartQuizBtnClick);
 
-        // Kill GSAP tweens on elements
+        if (this.cursor && this.cursor.parentNode) document.body.removeChild(this.cursor);
+
         if (this.elements.card) gsap.killTweensOf(this.elements.card);
         if (this.elements.loader) gsap.killTweensOf(this.elements.loader);
 
-        // Kill GSAP tweens on continents (position and color)
         if (this.sceneManager && this.sceneManager.globe && this.sceneManager.globe.continents) {
             this.sceneManager.globe.continents.forEach(group => {
                 gsap.killTweensOf(group.position);
                 group.children.forEach(mesh => {
-                    if (mesh.material && mesh.material.color) {
-                         gsap.killTweensOf(mesh.material.color);
-                    }
+                    if (mesh.material && mesh.material.color) gsap.killTweensOf(mesh.material.color);
                 });
             });
         }
