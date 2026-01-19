@@ -1,51 +1,51 @@
 const config = {
-    // Colors - Ethereal Pastel Palette
+    // Colors - Refined Ethereal Pastel Palette
     colors: {
-        background: 0xFDFBF7, // Warm Cream
-        globe: 0x2E2B44,      // Deep Indigo (provides contrast for pastels)
-        globeEmissive: 0x111122, // Subtle night glow
-        atmosphere: 0x9370DB, // Medium Purple (creates a soft violet halo)
-        sun: 0xFFF5E1,        // Warm White Sun
-        grid: 0x555577,       // Soft Slate for grid lines
-        continent: 0xFFFFFF,  // Default base
-        continentHover: 0xFFD700, // Gold glow on hover
+        background: 0xF9F7F2, // Creamy Off-White (Softer than pure white)
+        globe: 0x3E4C5E,      // Soft Slate Blue (Matte finish base)
+        globeEmissive: 0x0A0E14, // Deep subtle glow
+        atmosphere: 0xB8C1EC, // Periwinkle Mist
+        sun: 0xFFF9E6,        // Soft Warm White
+        grid: 0x6B7A8F,       // Muted Steel Blue
+        continent: 0xF2E9E1,  // Alabaster base
+        continentHover: 0xFFD166, // Soft Gold
         star: 0xFFFFFF,
-        particle: 0xE6A8D7,   // Pink particles
-        rim: 0x87CEEB,        // Sky Blue rim light
+        particle: 0xEAB8D5,   // Dusty Pink particles
+        rim: 0xA7C7E7,        // Pastel Blue rim light
 
-        // Specific pastel continent colors
-        africa: 0xFFCCB6,      // Peach
-        australia: 0xF8C8DC,   // Pastel Rose
-        antarctica: 0xE0F7FA,  // Icy Cyan
-        europe: 0xB5EAD7,      // Mint
-        asia: 0xC7CEEA,        // Periwinkle
-        northAmerica: 0xE2F0CB,// Pale Green
-        southAmerica: 0xFFDAC1,// Apricot
+        // Harmonized Pastel Continent Colors
+        africa: 0xE6CBAD,      // Sand/Biscuit
+        australia: 0xF4A6A6,   // Dusty Rose
+        antarctica: 0xEBFBFB,  // Glacial White
+        europe: 0xA8D8EA,      // Soft Sky
+        asia: 0xAA96DA,        // Muted Lavender
+        northAmerica: 0xC4E0C4,// Sage Green
+        southAmerica: 0xFFD3B6,// Peach
     },
 
     // Scene Settings
     scene: {
-        cameraFOV: 45,
+        cameraFOV: 40, // Narrower FOV for a more cinematic/orthographic feel
         cameraNear: 0.1,
         cameraFar: 1000,
-        cameraPos: { x: 0, y: 12, z: 22 }, // Slightly closer/lower for immersion
-        ambientIntensity: 0.4, // Softer ambient
-        sunPosition: { x: 50, y: 30, z: 20 },
-        sunIntensity: 2.0, // Brighter key light
+        cameraPos: { x: 0, y: 14, z: 24 }, // Cinematic high angle
+        ambientIntensity: 0.6, // Higher ambient for softer shadows
+        sunPosition: { x: 60, y: 40, z: 30 },
+        sunIntensity: 1.8, // Balanced key light
     },
 
     // Globe Settings
     globe: {
         radius: 5,
-        segments: 128, // Smoother geometry
-        bumpScale: 0.08, // More defined topology
+        segments: 128,
+        bumpScale: 0.06, // Smoother, porcelain-like
     },
 
     // UI Animation Timing (seconds)
     timing: {
-        introDuration: 2.5,
-        zoomDuration: 1.8,
-        hoverDuration: 0.4,
+        introDuration: 3.0, // Slower, more majestic intro
+        zoomDuration: 2.0,
+        hoverDuration: 0.5,
     }
 };
 
