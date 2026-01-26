@@ -1,51 +1,51 @@
 const config = {
     // Colors - Refined Ethereal Pastel Palette
     colors: {
-        background: 0xF9F7F2, // Creamy Off-White (Softer than pure white)
-        globe: 0x3E4C5E,      // Soft Slate Blue (Matte finish base)
-        globeEmissive: 0x0A0E14, // Deep subtle glow
-        atmosphere: 0xB8C1EC, // Periwinkle Mist
-        sun: 0xFFF9E6,        // Soft Warm White
-        grid: 0x6B7A8F,       // Muted Steel Blue
-        continent: 0xF2E9E1,  // Alabaster base
-        continentHover: 0xFFD166, // Soft Gold
+        background: 0xF9F8F6, // Warm Alabaster
+        globe: 0x2C3A47,      // Deep Matte Slate (Slightly darker for contrast)
+        globeEmissive: 0x0A0E14,
+        atmosphere: 0xC5CAE9, // Soft Periwinkle
+        sun: 0xFFF5E1,        // Champagne White
+        grid: 0x576574,       // Muted Steel
+        continent: 0xEFEBE9,  // Porcelain
+        continentHover: 0xE2B982, // Muted Gold
         star: 0xFFFFFF,
-        particle: 0xEAB8D5,   // Dusty Pink particles
-        rim: 0xA7C7E7,        // Pastel Blue rim light
+        particle: 0xF8BBD0,   // Pastel Pink
+        rim: 0x90CAF9,        // Soft Blue Rim
 
         // Harmonized Pastel Continent Colors
-        africa: 0xE6CBAD,      // Sand/Biscuit
-        australia: 0xF4A6A6,   // Dusty Rose
-        antarctica: 0xEBFBFB,  // Glacial White
-        europe: 0xA8D8EA,      // Soft Sky
-        asia: 0xAA96DA,        // Muted Lavender
-        northAmerica: 0xC4E0C4,// Sage Green
-        southAmerica: 0xFFD3B6,// Peach
+        africa: 0xD7CCC8,      // Warm Taupe
+        australia: 0xF8BBD0,   // Dusty Rose
+        antarctica: 0xF5F5F5,  // Pure Ice
+        europe: 0xBBDEFB,      // Pale Sky
+        asia: 0xD1C4E9,        // Muted Lavender
+        northAmerica: 0xC8E6C9,// Pale Sage
+        southAmerica: 0xFFCCBC,// Soft Apricot
     },
 
     // Scene Settings
     scene: {
-        cameraFOV: 40, // Narrower FOV for a more cinematic/orthographic feel
+        cameraFOV: 35, // Even more cinematic/telephoto
         cameraNear: 0.1,
         cameraFar: 1000,
-        cameraPos: { x: 0, y: 14, z: 24 }, // Cinematic high angle
-        ambientIntensity: 0.6, // Higher ambient for softer shadows
-        sunPosition: { x: 60, y: 40, z: 30 },
-        sunIntensity: 1.8, // Balanced key light
+        cameraPos: { x: 0, y: 12, z: 26 }, // Adjusted for new FOV
+        ambientIntensity: 0.7, // Softer fill
+        sunPosition: { x: 50, y: 30, z: 40 },
+        sunIntensity: 1.6, // Balanced key light
     },
 
     // Globe Settings
     globe: {
         radius: 5,
         segments: 128,
-        bumpScale: 0.06, // Smoother, porcelain-like
+        bumpScale: 0.04, // Smoother finish
     },
 
     // UI Animation Timing (seconds)
     timing: {
-        introDuration: 3.0, // Slower, more majestic intro
-        zoomDuration: 2.0,
-        hoverDuration: 0.5,
+        introDuration: 2.5,
+        zoomDuration: 1.8,
+        hoverDuration: 0.4,
     }
 };
 
