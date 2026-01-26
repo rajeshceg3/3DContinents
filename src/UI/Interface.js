@@ -47,9 +47,14 @@ export class UIManager {
         this._onStartQuizBtnClick = this.onStartQuizBtnClick.bind(this);
         this._animateCursor = this.animateCursor.bind(this);
 
+        // Magnetic Button Bindings
+        this._onBtnMouseMove = this.onBtnMouseMove.bind(this);
+        this._onBtnMouseLeave = this.onBtnMouseLeave.bind(this);
+
         this.throttledRaycast = throttle(this.performRaycast.bind(this), 50);
 
         this.initListeners();
+        this.initMagneticButtons();
         this.animateCursor();
     }
 
@@ -66,19 +71,71 @@ export class UIManager {
         window.addEventListener('resize', this._onResize);
     }
 
+    initMagneticButtons() {
+        // Select all elements with .btn class or specific interactive elements
+        this.magneticElements = document.querySelectorAll('.btn, .close-btn');
+        this.magneticElements.forEach(el => {
+            el.addEventListener('mousemove', this._onBtnMouseMove);
+            el.addEventListener('mouseleave', this._onBtnMouseLeave);
+        });
+    }
+
+    onBtnMouseMove(e) {
+        const btn = e.currentTarget;
+        const rect = btn.getBoundingClientRect();
+        // Calculate distance from center of button
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+
+        // Magnetic pull strength
+        const strength = 0.3;
+
+        gsap.to(btn, {
+            x: x * strength,
+            y: y * strength,
+            duration: 0.4,
+            ease: "power2.out"
+        });
+
+        this.cursor.classList.add('magnetic');
+    }
+
+    onBtnMouseLeave(e) {
+        const btn = e.currentTarget;
+
+        // Snap back
+        gsap.to(btn, {
+            x: 0,
+            y: 0,
+            duration: 1.0,
+            ease: "elastic.out(1, 0.4)"
+        });
+
+        this.cursor.classList.remove('magnetic');
+    }
+
     animateCursor() {
-        // Smooth cursor follow
-        const dt = 0.2;
+        // Smooth cursor follow with lerp
+        const dt = 0.15;
+        const lastX = this.cursorPos.x;
+        const lastY = this.cursorPos.y;
+
         this.cursorPos.x += (this.cursorTarget.x - this.cursorPos.x) * dt;
         this.cursorPos.y += (this.cursorTarget.y - this.cursorPos.y) * dt;
 
-        this.cursor.style.transform = `translate(${this.cursorPos.x}px, ${this.cursorPos.y}px)`;
+        // Calculate velocity for dynamic scaling
+        const deltaX = this.cursorPos.x - lastX;
+        const deltaY = this.cursorPos.y - lastY;
+        const speed = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+        const scale = Math.min(1 + speed * 0.05, 1.5); // Cap scale at 1.5x
+
+        this.cursor.style.transform = `translate(${this.cursorPos.x}px, ${this.cursorPos.y}px) scale(${scale})`;
 
         requestAnimationFrame(this._animateCursor);
     }
 
     onResize() {
-        // Handle UI resize
+        // Handle UI resize if needed
     }
 
     onCloseCardClick() {
@@ -102,10 +159,15 @@ export class UIManager {
         this.mouseDownPos.set(event.clientX, event.clientY);
         this.isDrag = false;
         this.cursor.classList.add('active');
+
+        // Scale down cursor on click
+        gsap.to(this.cursor, { scale: 0.8, duration: 0.1 });
     }
 
     onMouseUp(event) {
         this.cursor.classList.remove('active');
+        gsap.to(this.cursor, { scale: 1, duration: 0.2 });
+
         const dist = Math.sqrt(
             Math.pow(event.clientX - this.mouseDownPos.x, 2) +
             Math.pow(event.clientY - this.mouseDownPos.y, 2)
@@ -167,7 +229,7 @@ export class UIManager {
         if (originalPos) {
             gsap.killTweensOf(group.position);
             const targetPos = isHovered
-                ? originalPos.clone().add(originalPos.clone().normalize().multiplyScalar(0.3))
+                ? originalPos.clone().add(originalPos.clone().normalize().multiplyScalar(0.2)) // Less jumpy
                 : originalPos;
 
             gsap.to(group.position, {
@@ -299,6 +361,14 @@ export class UIManager {
         if (this.elements.closeCard) this.elements.closeCard.removeEventListener('click', this._onCloseCardClick);
         if (this.elements.resetBtn) this.elements.resetBtn.removeEventListener('click', this._onResetBtnClick);
         if (this.elements.startQuizBtn) this.elements.startQuizBtn.removeEventListener('click', this._onStartQuizBtnClick);
+
+        // Remove magnetic listeners
+        if (this.magneticElements) {
+            this.magneticElements.forEach(el => {
+                el.removeEventListener('mousemove', this._onBtnMouseMove);
+                el.removeEventListener('mouseleave', this._onBtnMouseLeave);
+            });
+        }
 
         if (this.cursor && this.cursor.parentNode) document.body.removeChild(this.cursor);
 
