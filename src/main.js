@@ -1,7 +1,7 @@
 import { SceneManager } from './World/SceneManager.js';
 import { UIManager } from './UI/Interface.js';
 import { resetState } from './State.js';
-import WebGL from 'three/addons/capabilities/WebGL.js';
+import { isWebGLAvailable, getWebGLErrorMessage } from './Utils/webgl.js';
 
 const init = () => {
     console.log("Initializing Aether...");
@@ -11,9 +11,9 @@ const init = () => {
         resetState();
 
         // 1. WebGL Capability Check
-        if (!WebGL.isWebGLAvailable()) {
+        if (!isWebGLAvailable()) {
             console.error("WebGL not available");
-            const warning = WebGL.getWebGLErrorMessage();
+            const warning = getWebGLErrorMessage();
             const loader = document.getElementById('loader');
             if (loader) {
                 loader.innerHTML = ''; // Clear loader
