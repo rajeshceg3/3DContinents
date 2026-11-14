@@ -350,44 +350,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Quiz HUD */
-         .quiz-hud {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.8s ease;
-            width: 60%;
-        }
-
-        .quiz-hud.visible { opacity: 1; }
-
-        .quiz-question {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: clamp(2.5rem, 4vw, 4.5rem);
-            color: var(--text-primary);
-            margin-bottom: 2rem;
-            font-style: italic;
-            text-shadow: 0 10px 30px rgba(255,255,255,0.8);
-        }
-
-        .quiz-score {
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.8rem;
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-            color: var(--text-secondary);
-            border: 1px solid var(--glass-border);
-            padding: 12px 30px;
-            border-radius: 50px;
-            background: var(--glass-surface);
-            backdrop-filter: blur(20px);
-            display: inline-block;
-        }
-
         @media (max-width: 1024px) {
             .info-card-container {
                 width: 90%;
@@ -429,10 +391,6 @@
             <div class="subtitle">Ethereal Exploration</div>
         </header>
 
-        <div id="quizHud" class="quiz-hud" aria-live="polite">
-            <div class="quiz-question" id="quizQuestion"></div>
-            <div class="quiz-score" id="quizScore">Score: 0</div>
-        </div>
 
         <div class="controls">
             <button id="resetBtn" class="btn" aria-label="Return to global view">Orbit View</button>

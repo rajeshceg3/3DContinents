@@ -22,9 +22,6 @@ export class UIManager {
             cardContent: document.getElementById('cardText'),
             closeCard: document.getElementById('closeCard'),
             resetBtn: document.getElementById('resetBtn'),
-            quizUI: document.getElementById('quizHud'),
-            quizQuestion: document.getElementById('quizQuestion'),
-            quizScore: document.getElementById('quizScore'),
             startQuizBtn: document.getElementById('quizBtn')
         };
 
